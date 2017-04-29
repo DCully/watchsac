@@ -1,0 +1,54 @@
+
+-- sac == "steap and cheap"
+drop database if exists sac;
+create database sac;
+use sac;
+
+-- only the scraping process writes to this table
+drop table if exists deals;
+create table deals (
+	id int primary key auto_increment,
+	created timestamp default now(),
+    product_name varchar(255) unique,
+    product_description varchar(4095)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8 COLLATE=utf8_bin;
+
+-- only the UI writes to these two tables
+drop table if exists alerts;
+create table alerts (
+	id int primary key auto_increment,
+    user_id int,
+    alert_name varchar(127),
+    search_terms varchar(1024),
+    created timestamp default now(),
+    active int default 1
+) ENGINE=InnoDB DEFAULT CHARSET=utf8 COLLATE=utf8_bin;
+
+drop table if exists users;
+create table users (
+	id int primary key auto_increment,
+    phone_number varchar(55),
+    username varchar(255) unique,
+    password varchar(514)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8 COLLATE=utf8_bin;
+alter table users add unique (phone_number, username);
+
+-- only the alerting process writes to this table
+drop table if exists sent_alerts;
+create table sent_alerts (
+	id int primary key auto_increment,
+	deal_id int,
+    alert_id int,
+    sent timestamp,
+    foreign key (alert_id) references alerts(id),
+    foreign key (deal_id) references deals(id)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8 COLLATE=utf8_bin;
+
+-- the UI reads from this table (all writes to it are manual for now)
+-- this is to make new account creation invitation-only :-)
+drop table if exists new_account_keys;
+create table new_account_keys (
+	id int primary key auto_increment,
+	new_account_key varchar(127) unique,
+    active int default 1
+) ENGINE=InnoDB DEFAULT CHARSET=utf8 COLLATE=utf8_bin;
