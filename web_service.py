@@ -2,6 +2,7 @@ import cherrypy
 from model import Model, Alert
 import logging
 import utils
+import properties
 
 """
 API spec - 4 RESTful HTTPS actions
@@ -35,6 +36,10 @@ Returns:			204 No Content on success, 401 on unauthorized, 404 otherwise
 """
 
 logging.basicConfig(filename='web_service.log', level=logging.DEBUG)
+
+
+class App(object):
+    pass
 
 
 @cherrypy.expose  # /accounts
@@ -98,7 +103,9 @@ class AccountService(object):
         Returns a User object if successful - None otherwise. """
         return self.model.save_user(phone_number, username, utils.encrypt(password))
 
+    @cherrypy.tools.accept(media='application/json')
     @cherrypy.tools.json_in()
+    @cherrypy.tools.json_out()
     def POST(self):
         """
         Load the valid keys from the DB, and if the key is legit and the username/number
@@ -121,7 +128,8 @@ class AccountService(object):
             cherrypy.response.status = 401
         elif self.__save_new_account(data["u"], data["p"], data["pn"]) is not None:
             logging.info("Successful account setup request for user: %s" % str(data["u"]))
-            cherrypy.response.status = 201
+            cherrypy.response.status = 200
+            return {}
         else:
             logging.info("Something went wrong with an account setup request: %s" % str(data))
             cherrypy.response.status = 400  # collision in the DB - assume it was a dup record
@@ -175,6 +183,7 @@ class AlertService(object):
         return [x.to_dict() for x in self.__get_alerts_for_user(user_id)]
 
     @cherrypy.tools.json_in()
+    @cherrypy.tools.json_out()
     def POST(self):
         user = self.__get_user_by_name(cherrypy.request.login)
         alerts = self.__get_alerts_for_user(user._id)
@@ -192,11 +201,11 @@ class AlertService(object):
                 if int(existing_alert.alert_id) == int(new_alert.alert_id):
                     self.model.update_alert(new_alert)
                     cherrypy.response.status = 200
-                    break
+                    return {}
         else:
             self.model.save_alert(new_alert)
 
-    @cherrypy.tools.accept(media='text/plain')
+    @cherrypy.tools.json_out()
     def DELETE(self, id):
         alert_id = int(id)
         user = self.__get_user_by_name(cherrypy.request.login)
@@ -206,17 +215,30 @@ class AlertService(object):
             if int(alert.alert_id) == alert_id:
                 self.model.archive_alert(alert)
                 cherrypy.response.status = 200
-                break
+                return {}
 
 
 def start_webapp(premade_db_conn_pool=None):
+
     model = Model(conn_pool_size=5, premade_db_conn_pool=premade_db_conn_pool)
+
     account_service = AccountService(model)
     alert_service = AlertService(model)
+    static_app_service = App()
+
+    cherrypy.tree.mount(static_app_service, "/", {
+        '/':
+        {
+            'tools.staticdir.on': True,
+            'tools.staticdir.dir': properties.CLIENT_APP_DIR,
+            'tools.staticdir.index': 'index.html',
+        }
+    })
     cherrypy.tree.mount(account_service, '/accounts', {
         '/':
         {
-            'request.dispatch': cherrypy.dispatch.MethodDispatcher()
+            'request.dispatch': cherrypy.dispatch.MethodDispatcher(),
+            'tools.json_in.force': False
         }
     })
     cherrypy.tree.mount(alert_service, '/alerts', {
@@ -225,7 +247,8 @@ def start_webapp(premade_db_conn_pool=None):
             'request.dispatch': cherrypy.dispatch.MethodDispatcher(),
             'tools.auth_basic.on': True,
             'tools.auth_basic.realm': 'localhost',
-            'tools.auth_basic.checkpassword': alert_service.validate_password
+            'tools.auth_basic.checkpassword': alert_service.validate_password,
+            'tools.json_in.force': False
         }
     })
     cherrypy.engine.start()

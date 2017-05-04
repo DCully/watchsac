@@ -14,6 +14,7 @@ logging.basicConfig(filename='scrape_and_save.log', level=logging.DEBUG)
 def scrape_current_steal_url():
     # using selenium here to render javascript automatically (using phantomjs for headlessness)
     logging.info("Scraping the current steal URL...")
+    driver = None
     try:
         driver = webdriver.PhantomJS(executable_path="/usr/local/bin/phantomjs")
         driver.get("http://www.steepandcheap.com")
@@ -29,6 +30,12 @@ def scrape_current_steal_url():
         logging.error("An exception occurred scraping the current steal URL: ")
         logging.error(e)
         return None
+    finally:
+        if driver is not None:
+            logging.info("Shutting down selenium driver")
+            driver.close()
+            driver.quit()
+            logging.info("Selenium shutdown successful")
 
 
 def parse_current_steal_product_name_and_description(url):
@@ -62,6 +69,7 @@ def main():
         if title is not None and prod_desc is not None:
             model = Model()
             model.save_current_steal(title, prod_desc)
+            logging.info("Save went ok, returning 0 in main")
             return 0
     return 1
 

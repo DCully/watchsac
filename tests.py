@@ -245,6 +245,24 @@ class TestAlertService(unittest.TestCase):
         )
         self.assertEqual(resp.status_code, 400)
 
+    def test_no_sql_injection(self):
+
+        # fetch the current alerts list (there should be 1)
+        user_2_alerts = json.loads(requests.get(TestAlertService.EP, auth=(TestAlertService.u2, TestAlertService.p2)).text)
+        self.assertEqual(len(user_2_alerts), 1)
+
+        # try to save with some sql in the name - confirm 400
+        resp = requests.post(
+            TestAlertService.EP,
+            auth=(TestAlertService.u, TestAlertService.p),
+            json={"id": TestAlertService.u2_alert_id, "name": "drop table users;", "search_terms": ["search", "terms"]}
+        )
+        self.assertEqual(resp.status_code, 400)
+
+        # make sure that alert's still there
+        user_2_alerts = json.loads(requests.get(TestAlertService.EP, auth=(TestAlertService.u2, TestAlertService.p2)).text)
+        self.assertEqual(len(user_2_alerts), 1)
+
 
 class TestUtils(unittest.TestCase):
 

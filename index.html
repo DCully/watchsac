@@ -1,0 +1,107 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <title>WatchSAC - Dave's Steep and Cheap Monitor</title>
+  <meta name="description" content="">
+  <meta name="author" content="">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <link href="//fonts.googleapis.com/css?family=Raleway:400,300,600" rel="stylesheet" type="text/css">
+  <link rel="stylesheet" href="css/normalize.css">
+  <link rel="stylesheet" href="css/skeleton.css">
+  <link rel="icon" type="image/png" href="images/favicon.png">
+  <script src="jquery-3.2.1.min.js"></script>
+</head>
+<body style="background-color:azure">
+
+  <!-- Title at the top of the page -->
+  <h1 style="color:navy;width:100%;text-align:center;"><u>Dave's Steep and Cheap Monitor</u></h1>
+
+  <!-- I'm revealing and hiding the divs as if they are individual pages -->
+
+  <!-- Page for logging in -->
+  <div id="login_page" style="position:relative;margin-left:auto;margin-right:auto;width:80%;">
+      <h3 style="color:navy;width:100%;text-align:center;">Login</h3>
+      <form>
+          <div class="row">
+              <div class="six columns">
+                  <label for="username_input">User Name</label>
+                  <input class="u-full-width" type="text" placeholder="" id="username_input">
+              </div>
+              <div class="six columns">
+                  <label for="password_input">Password</label>
+                  <input class="u-full-width" type="password" placeholder="" id="password_input">
+              </div>
+          </div>
+          <input id="login_submit_button" class="button" type="button" value="Submit">
+          <input id="sign_up_nav_button" class="button" type="button" value="Not a member? Sign up!">
+      </form>
+  </div>
+
+  <!-- Page for setting up a new account -->
+  <div id="new_account_setup_page" style="position:relative;margin-left:auto;margin-right:auto;width:80%;display:none;">
+    <h3 style="color:navy;width:100%;text-align:center;">Account Setup</h3>
+    <form>
+      <div class="row">
+        <div class="two columns">
+          <label for="new_username_input">User Name</label>
+          <input class="u-full-width" type="text" placeholder="" id="new_username_input">
+        </div>
+        <div class="two columns">
+          <label for="new_password_input">Password</label>
+            <input class="u-full-width" type="password" placeholder="" id="new_password_input">
+        </div>
+        <div class="two columns">
+          <label for="new_password_input_2">Password</label>
+          <input class="u-full-width" type="password" placeholder="" id="new_password_input_2">
+        </div>
+        <div class="two columns">
+          <label for="phone_number_input">Phone #</label>
+          <input class="u-full-width" type="text" placeholder="" id="phone_number_input">
+        </div>
+        <div class="two columns">
+          <label for="new_account_key_input">Key</label>
+          <input class="u-full-width" type="text" placeholder="" id="new_account_key_input">
+        </div>
+      </div>
+      <input id="new_account_setup_submit_button" class="button" type="button" value="Submit">
+    </form>
+  </div>
+
+  <!-- Page for viewing your current alerts -->
+  <div id="alerts_page" style="position:relative;margin-left:auto;margin-right:auto;width:80%;display:none;">
+    <h3 style="color:navy;width:100%;text-align:center;">Active Alerts</h3>
+    <table class="u-full-width">
+      <thead>
+      <tr>
+        <th>Message</th>
+        <th>Search Terms</th>
+        <th><input id="refresh_alerts_submit_button" class="button" type="button" value="Refresh"></th>
+      </tr>
+      </thead>
+      <tbody id="alerts_table"> <!-- dynamically adding/removing trs -->
+      </tbody>
+    </table>
+      <div style="text-align:center;">
+          <input id="new_alert_setup_nav_button" class="button" type="button" value="New">
+      </div>
+  </div>
+
+  <!-- Page for setting up a new alert -->
+  <div id="new_alert_page" style="position:relative;margin-left:auto;margin-right:auto;width:80%;display:none;">
+    <h3 style="color:navy;width:100%;text-align:center;">Alert Setup</h3>
+    <form>
+      <div class="row">
+        <label for="alert_message_input">Message to send (less than 150 characters):</label>
+        <textarea class="u-full-width" placeholder="" id="alert_message_input"></textarea>
+        <label for="search_terms_input">Phrases to look for (comma-separated, less than 150 characters):</label>
+        <textarea class="u-full-width" placeholder="" id="search_terms_input"></textarea>
+        <input id="save_alert_submit_button" class="button" type="button" value="Save">
+      </div>
+    </form>
+  </div>
+
+  <script src="watchsac.js"></script>
+
+</body>
+</html>

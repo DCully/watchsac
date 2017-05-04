@@ -149,7 +149,6 @@ class Model(object):
             logging.info("save the record first...")
             db_conn = self.conn_pool.get_conn()
             cursor = db_conn.cursor()
-            print("saving password %s" % password)
             cursor.execute(save_sql, (phone_number, user_name, password))
             db_conn.commit()
             logging.info("now load it back...")

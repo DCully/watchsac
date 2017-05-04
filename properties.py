@@ -14,3 +14,6 @@ MYSQL_HOST = config.get("MySQL", "MYSQL_HOST")
 MYSQL_USER = config.get("MySQL", "MYSQL_USER")
 MYSQL_PASSWORD = config.get("MySQL", "MYSQL_PASSWORD")
 MYSQL_DB_NAME = config.get("MySQL", "MYSQL_DB_NAME")
+
+# client side app dir
+CLIENT_APP_DIR = "/Users/davidcully/WebstormProjects/watchsac/Skeleton-2.0.4"
