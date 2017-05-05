@@ -1,4 +1,4 @@
-var API_URL = "http://localhost:8080";
+var API_URL = "https://watchsac.com";
 
 var apiClient = null;
 
