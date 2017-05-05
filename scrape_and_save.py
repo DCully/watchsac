@@ -3,6 +3,7 @@ from selenium import webdriver
 import requests
 import logging
 from model import Model
+import os, signal
 
 """
 This process scrapes the current steal off of Steep and Cheap and stuffs it into the deals table in local MySQL.
@@ -11,7 +12,7 @@ This process scrapes the current steal off of Steep and Cheap and stuffs it into
 logging.basicConfig(filename='scrape_and_save.log', level=logging.DEBUG)
 
 
-def scrape_current_steal_url():
+def scrape_main_page_render_js():
     # using selenium here to render javascript automatically (using phantomjs for headlessness)
     logging.info("Scraping the current steal URL...")
     driver = None
@@ -19,29 +20,37 @@ def scrape_current_steal_url():
         driver = webdriver.PhantomJS(executable_path="/usr/local/bin/phantomjs")
         driver.get("http://www.steepandcheap.com")
         html = driver.page_source.encode('utf-8')
-        for line in html.splitlines():
-            if "Current Steal" in line:
-                soup = BeautifulSoup(line, "html.parser")
-                for aref in soup.find_all('a', {"data-id": 5}):
-                    result = "http://www.steepandcheap.com" + aref["href"]
-                    logging.info("Successfully scraped current steal URL: " + result)
-                    return result
+        return html
     except Exception as e:
         logging.error("An exception occurred scraping the current steal URL: ")
         logging.error(e)
         return None
     finally:
         if driver is not None:
-            logging.info("Shutting down selenium driver")
-            driver.close()
-            driver.quit()
-            logging.info("Selenium shutdown successful")
+            try:
+                logging.info("Shutting down selenium driver")
+                driver.close()
+                driver.quit()
+                logging.info("Selenium shutdown successful")
+            except Exception as e:
+                logging.exception("Selenium did not shut down OK")
 
 
-def parse_current_steal_product_name_and_description(url):
+def parse_out_current_steal_url(html):
+    soup = BeautifulSoup(html, "html.parser")
+    for aref in soup.find_all('a', {"data-id": 5}):
+        href = aref["href"]
+        if len(href) > 20:
+            result = "http://www.steepandcheap.com" + aref["href"]
+            logging.info("Successfully scraped current steal URL: " + result)
+            return result
+    logging.error("Couldn't parse out the current steal URL")
+
+
+def scrape_current_steal_product_name_and_description(url):
     logging.info("Fetching and parsing current steal name and description...")
     try:
-        logging.info("Fetching the page...")
+        logging.info("Fetching the page at: %s" % str(url))
         resp = requests.get(url)
         soup = BeautifulSoup(resp.text.encode('utf-8'), "html.parser")
         logging.info("Parsing out the page title as the product name...")
@@ -63,16 +72,17 @@ def parse_current_steal_product_name_and_description(url):
 
 def main():
     # returns 0 on success, 1 on failure
-    url = scrape_current_steal_url()
+    url = parse_out_current_steal_url(scrape_main_page_render_js())
     if url is not None:
-        title, prod_desc = parse_current_steal_product_name_and_description(scrape_current_steal_url())
+        title, prod_desc = scrape_current_steal_product_name_and_description(url)
         if title is not None and prod_desc is not None:
             model = Model()
             model.save_current_steal(title, prod_desc)
-            logging.info("Save went ok, returning 0 in main")
-            return 0
-    return 1
+            # TODO - the process has a separate thread which hangs in python's .encode() impl... what?
+            logging.info("Save went ok, time to kill myself")
+            os.kill(os.getpid(), signal.SIGKILL)
 
 
 if __name__ == "__main__":
-    exit(main())
+    main()
+
