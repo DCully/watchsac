@@ -1,8 +1,8 @@
 from bs4 import BeautifulSoup
-from selenium import webdriver
 import requests
 import logging
 from model import Model
+import json
 import os, signal
 
 """
@@ -12,39 +12,19 @@ This process scrapes the current steal off of Steep and Cheap and stuffs it into
 logging.basicConfig(filename='scrape_and_save.log', level=logging.DEBUG)
 
 
-def scrape_main_page_render_js():
-    # using selenium here to render javascript automatically (using phantomjs for headlessness)
-    logging.info("Scraping the current steal URL...")
-    driver = None
+def get_current_steal_url():
+    url = None
     try:
-        driver = webdriver.PhantomJS(executable_path="/usr/local/bin/phantomjs")
-        driver.get("http://www.steepandcheap.com")
-        html = driver.page_source.encode('utf-8')
-        return html
+        resp = requests.get("https://www.steepandcheap.com/data/odat.json")
+        assert resp.status_code == 200, "did not get a 200 back from odat.json url"
+        jobj = json.loads(resp.text)
+        url = "https://www.steepandcheap.com" + jobj["url"]
+        logging.info("current steal url: %s" % url)
     except Exception as e:
-        logging.error("An exception occurred scraping the current steal URL: ")
-        logging.error(e)
-        return None
+        print e.message
+        logging.exception(e)
     finally:
-        if driver is not None:
-            try:
-                logging.info("Shutting down selenium driver")
-                driver.close()
-                driver.quit()
-                logging.info("Selenium shutdown successful")
-            except Exception as e:
-                logging.exception("Selenium did not shut down OK")
-
-
-def parse_out_current_steal_url(html):
-    soup = BeautifulSoup(html, "html.parser")
-    for aref in soup.find_all('a', {"data-id": 5}):
-        href = aref["href"]
-        if len(href) > 20:
-            result = "http://www.steepandcheap.com" + aref["href"]
-            logging.info("Successfully scraped current steal URL: " + result)
-            return result
-    logging.error("Couldn't parse out the current steal URL")
+        return url
 
 
 def scrape_current_steal_product_name_and_description(url):
@@ -54,7 +34,7 @@ def scrape_current_steal_product_name_and_description(url):
         resp = requests.get(url)
         soup = BeautifulSoup(resp.text.encode('utf-8'), "html.parser")
         logging.info("Parsing out the page title as the product name...")
-        title = soup.title.string.split("|")[0].encode('utf-8')
+        title = soup.title.string.split("|")[0].encode('ascii', 'ignore')
         logging.info("Parsing out the product description...")
         product_description = ""
         for div in soup.find_all('div', {'class': 'prod-desc'}):
@@ -62,7 +42,7 @@ def scrape_current_steal_product_name_and_description(url):
         for ul in soup.find_all('ul', {'class': 'product-bulletpoints'}):
             for li in ul.find_all('li'):
                 product_description += " " + li.text + ". "
-        product_description = product_description.encode('utf-8').replace('\n', "")
+        product_description = product_description.encode('ascii', 'ignore').replace('\n', "")
         return title, product_description
     except Exception as e:
         logging.error("An exception occurred fetching/parsing current steal name and description: ")
@@ -71,18 +51,15 @@ def scrape_current_steal_product_name_and_description(url):
 
 
 def main():
-    # returns 0 on success, 1 on failure
-    url = parse_out_current_steal_url(scrape_main_page_render_js())
+    url = get_current_steal_url()
     if url is not None:
         title, prod_desc = scrape_current_steal_product_name_and_description(url)
         if title is not None and prod_desc is not None:
             model = Model()
             model.save_current_steal(title, prod_desc)
-            # TODO - the process has a separate thread which hangs in python's .encode() impl... what?
-            logging.info("Save went ok, time to kill myself")
-            os.kill(os.getpid(), signal.SIGKILL)
+            logging.info("Save went ok, killing myself now")
+    os.kill(os.getpid(), signal.SIGKILL)
 
 
 if __name__ == "__main__":
     main()
-
