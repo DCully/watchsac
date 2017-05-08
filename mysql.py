@@ -8,8 +8,9 @@ class DBConnPool(object):
     """ Wraps one sync'd pool of X DB conns - use get() to get them out and put() to put them back. """
 
     def __init__(self, conn_count=5):
+        self.conn_count = conn_count
         self.pool = Queue()
-        for x in range(conn_count):
+        for x in range(self.conn_count):
             self.pool.put(DBConnPool.__get_db_conn())
 
     @staticmethod
@@ -28,8 +29,8 @@ class DBConnPool(object):
         if conn is not None:
             try:
                 conn.close()
-            except:
-                pass
+            except Exception as e:
+                print e
 
     def get_conn(self):
         return self.pool.get()
@@ -45,5 +46,7 @@ class DBConnPool(object):
             self.pool.put(conn)
 
     def close_all(self):
-        for x in range(5):
+        logging.debug("Closing all DB connections")
+        for x in range(self.conn_count):
             DBConnPool.__close_db_conn(self.pool.get())
+        logging.debug("All DB connections closed.")

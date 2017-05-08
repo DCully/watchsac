@@ -82,7 +82,9 @@ class Model(object):
             self.conn_pool = mysql.DBConnPool(conn_count=conn_pool_size)
 
     def __del__(self):
+        logging.debug("Closing all DB connections")
         self.conn_pool.close_all()
+        logging.debug("All db connections closed")
 
     #
     # read new account keys
@@ -294,6 +296,26 @@ class Model(object):
             if db_conn is not None:
                 self.conn_pool.return_conn(db_conn)
         return result
+
+    def load_all_steals_since(self, datetime_obj):
+        """ Returns a list of 0 or more CurrentSteals. """
+        logging.info("Loading current steals since %s" % str(datetime_obj))
+        sql = "select deals.id, deals.product_name, deals.product_description from deals where deals.created > %s"
+        results = []
+        db_conn = None
+        try:
+            db_conn = self.conn_pool.get_conn()
+            cursor = db_conn.cursor()
+            cursor.execute(sql, (datetime_obj,))
+            rs = cursor.fetchall()
+            for r in rs:
+                results.append(CurrentSteal(r[0], r[1], r[2]))
+        except Exception as e:
+            logging.exception(e)
+        finally:
+            if db_conn is not None:
+                self.conn_pool.return_conn(db_conn)
+        return results
 
     #
     # read/write sent alert records
