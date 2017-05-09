@@ -16,4 +16,8 @@ MYSQL_PASSWORD = config.get("MySQL", "MYSQL_PASSWORD")
 MYSQL_DB_NAME = config.get("MySQL", "MYSQL_DB_NAME")
 
 # client side app dir
-CLIENT_APP_DIR = "/Users/davidcully/WebstormProjects/watchsac/Skeleton-2.0.4"
+CLIENT_APP_DIR = config.get("webapp", "CLIENT_APP_DIR")
+
+# search terms suggestion
+SEARCH_TERMS_SUGGESTION_TEMP_DB_FILE_PATH = config.get("etc", "SEARCH_TERMS_SUGGESTION_TEMP_DB_FILE_PATH")
+SEARCH_TERMS_SUGGESTION_BLOOM_FILTER_OUTPUT_DIR = config.get("etc", "SEARCH_TERMS_SUGGESTION_BLOOM_FILTER_OUTPUT_DIR")

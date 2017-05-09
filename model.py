@@ -261,7 +261,7 @@ class Model(object):
             product_description = product_description[:4094]
             db_conn = self.conn_pool.get_conn()
             with db_conn.cursor() as cursor:
-                sql = "insert ignore into deals (product_name, product_description) values (%s, %s)"
+                sql = "insert into deals (product_name, product_description) values (%s, %s)"
                 cursor.execute(
                     sql,
                     (title, product_description)

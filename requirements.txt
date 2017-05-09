@@ -41,3 +41,4 @@ summa==0.0.7
 tempora==1.6.1
 twilio==6.0.0
 wheel==0.29.0
+inbloom==0.2.2
