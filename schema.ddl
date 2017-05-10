@@ -52,3 +52,6 @@ create table new_account_keys (
 	new_account_key varchar(127) unique,
     active int default 1
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8 COLLATE=utf8_bin;
+
+-- turns out we need to have duplicate deals, because they re-run them sometimes
+alter table deals drop index product_name;

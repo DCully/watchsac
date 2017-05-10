@@ -56,7 +56,11 @@ def main():
         title, prod_desc = scrape_current_steal_product_name_and_description(url)
         if title is not None and prod_desc is not None:
             model = Model()
-            model.save_current_steal(title, prod_desc)
+            current_steal = model.load_current_steal()
+            if str(current_steal.product_name) != str(title):
+                # we've already captured this iteration of the deal - don't save it again
+                logging.info("This deal is new - save it")
+                model.save_current_steal(title, prod_desc)
             logging.info("Save went ok, killing myself now")
     os.kill(os.getpid(), signal.SIGKILL)
 
