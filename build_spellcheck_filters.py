@@ -19,6 +19,7 @@ user inputted search terms. To do this efficiently in the web service, this scri
 2) Builds a Bloom filter that the web service can use to see if the inputted phrase is (probably) spelled correctly
 3) Builds a Count-Min sketch that the web service can use to see how frequently that phrase has appeared recently
 
+NOTE: removed CM-sketch - not scaling well, need a different approach
 """
 
 logging.basicConfig(format='%(asctime)s  -  %(message)s', level=logging.INFO)
@@ -151,20 +152,20 @@ def build_filters():
 
     logging.info("Building bloom filter and CM sketch")
     bloom_filter = inbloom.Filter(
-        entries=min(UP_TO_K_MOST_FREQUENT_PHRASES, total_phrase_count),
-        error=0.001
+        entries=UP_TO_K_MOST_FREQUENT_PHRASES,
+        error=0.0001
     )
-    cm_sketch = count_min_sketch.CountMinSketch(
-        delta=0.001,
-        epsilon=2
-    )
+    # cm_sketch = count_min_sketch.CountMinSketch(
+    #     w=10,
+    #     d=2
+    # )
     for phrase, frequency in load_up_to_k_phrases_with_frequencies(UP_TO_K_MOST_FREQUENT_PHRASES):
         logging.debug("Loaded phrase: %s, which had frequency %d" % (phrase, frequency))
         bloom_filter.add(phrase)
-        cm_sketch[phrase] += 1
+        # cm_sketch[phrase] += 1
     logging.info("Bloom filter and sketch built OK")
 
-    return bloom_filter, cm_sketch
+    return bloom_filter, None
 
 
 def save_bloom_filter(bloom_filter):
@@ -180,20 +181,20 @@ def load_bloom_filter():
         return inbloom.load(binascii.unhexlify(data))
 
 
-def save_cm_sketch(cm_sketch):
-    with open(SPELLCHECK_FILTERS_OUTPUT_DIR + OUTPUTTED_CM_SKETCH_FILE_NAME, "wb") as f:
-        pickle.dump(cm_sketch, f)
-    logging.info("CM Sketch saved to disk.")
+# def save_cm_sketch(cm_sketch):
+#     with open(SPELLCHECK_FILTERS_OUTPUT_DIR + OUTPUTTED_CM_SKETCH_FILE_NAME, "wb") as f:
+#         pickle.dump(cm_sketch, f)
+#     logging.info("CM Sketch saved to disk.")
+#
 
-
-def load_cm_sketch():
-    with open(SPELLCHECK_FILTERS_OUTPUT_DIR + OUTPUTTED_CM_SKETCH_FILE_NAME, "rb") as f:
-        return pickle.load(f)
+# def load_cm_sketch():
+#     with open(SPELLCHECK_FILTERS_OUTPUT_DIR + OUTPUTTED_CM_SKETCH_FILE_NAME, "rb") as f:
+#         return pickle.load(f)
 
 
 def delete_saved_filters():
     os.remove(SPELLCHECK_FILTERS_OUTPUT_DIR + OUTPUTTED_BLOOM_FILTER_FILE_NAME)
-    os.remove(SPELLCHECK_FILTERS_OUTPUT_DIR + OUTPUTTED_CM_SKETCH_FILE_NAME)
+    #os.remove(SPELLCHECK_FILTERS_OUTPUT_DIR + OUTPUTTED_CM_SKETCH_FILE_NAME)
 
 
 def main():
@@ -201,7 +202,6 @@ def main():
     try:
         bloom_filter, cm_sketch = build_filters()
         save_bloom_filter(bloom_filter)
-        save_cm_sketch(cm_sketch)
     except Exception as e:
         logging.exception(e)
         exit_code = 1

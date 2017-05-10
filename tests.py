@@ -6,6 +6,7 @@ import os
 import utils
 import json
 import build_spellcheck_filters
+import spellchecking
 
 # This test suite runs against the actual cherrypy webapp with a mysql back-end running locally behind it.
 # It will wipe the database you run it against before every run. Start the web service separately.
@@ -305,20 +306,53 @@ class TestSpellcheckFilters(unittest.TestCase):
         bf = build_spellcheck_filters.load_bloom_filter()
         self.do_test_bloom_filter(bf)
 
-    def do_test_cm_sketch(self, cm_sketch):
-        self.assertTrue(cm_sketch["arc'teryx"], 2)
-        self.assertTrue(cm_sketch["palapa 580p sunglasses"], 1)
-        self.assertTrue(cm_sketch["provide"], 2)
-        self.assertTrue(cm_sketch["treehouse haven"], 0)
-        self.assertTrue(cm_sketch["another phrase"], 0)
+    # def do_test_cm_sketch(self, cm_sketch):
+    #     self.assertEqual(cm_sketch["arc'teryx"], 2)
+    #     self.assertEqual(cm_sketch["palapa 580p sunglasses"], 1)
+    #     self.assertEqual(cm_sketch["provide"], 2)
+    #     self.assertEqual(cm_sketch["treehouse haven"], 0)
+    #     self.assertEqual(cm_sketch["another phrase"], 0)
+    #     self.assertEqual(cm_sketch["angelsintheoutfield"], 0)
+    #     print cm_sketch["angelsintheoutfield"]
+    #
+    # def test_cm_sketch(self):
+    #     self.do_test_cm_sketch(TestSpellcheckFilters.cm_sketch)
+    #
+    # def test_cm_sketch_serialization(self):
+    #     build_spellcheck_filters.save_cm_sketch(TestSpellcheckFilters.cm_sketch)
+    #     cm = build_spellcheck_filters.load_cm_sketch()
+    #     self.do_test_cm_sketch(cm)
 
-    def test_cm_sketch(self):
-        self.do_test_cm_sketch(TestSpellcheckFilters.cm_sketch)
 
-    def test_cm_sketch_serialization(self):
-        build_spellcheck_filters.save_cm_sketch(TestSpellcheckFilters.cm_sketch)
-        cm = build_spellcheck_filters.load_cm_sketch()
-        self.do_test_cm_sketch(cm)
+class TestSpellcheckingService(unittest.TestCase):
+
+    service = None
+
+    @classmethod
+    def setUpClass(cls):
+        bloom_filter, cm_sketch = build_spellcheck_filters.build_filters()
+        build_spellcheck_filters.save_bloom_filter(bloom_filter)
+        TestSpellcheckingService.service = spellchecking.SpellcheckingService()
+
+    @classmethod
+    def tearDownClass(cls):
+        build_spellcheck_filters.delete_temp_db()
+        build_spellcheck_filters.delete_saved_filters()
+
+    def test_correct(self):
+        service = TestSpellcheckingService.service
+        self.assertTrue(service._bloom_filter.contains("arc'teryx"))
+        self.assertEqual(service.try_to_correct("arc'teryx"), "arc'teryx")
+        self.assertEqual(service.try_to_correct("arcteryx"), "arc'teryx")
+        self.assertEqual(service.try_to_correct("arc'terx"), "arc'teryx")
+        self.assertEqual(service.try_to_correct("not even close"), None)
+        self.assertEqual(service.try_to_correct("air-permeable construction"), "air-permeable construction")
+        self.assertEqual(service.try_to_correct("air permeable construction"), "air-permeable construction")
+        self.assertEqual(service.try_to_correct("palm leaf roofs"), "palm leaf roofs")
+        self.assertEqual(service.try_to_correct("pam leaf roofs"), "palm leaf roofs")
+        self.assertEqual(service.try_to_correct("pallm leaf roofs"), "palm leaf roofs")
+        self.assertEqual(service.try_to_correct("pal12m leaf roofs"), "palm leaf roofs")
+        self.assertEqual(service.try_to_correct("pallm leaf rofs"), "palm leaf roofs")
 
 
 def set_up_db():
