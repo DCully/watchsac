@@ -23,6 +23,7 @@ user inputted search terms. To do this efficiently in the web service, this scri
 
 logging.basicConfig(format='%(asctime)s  -  %(message)s', level=logging.INFO)
 
+DAYS_BACK_TO_LOAD_DEALS = 14
 UP_TO_K_MOST_FREQUENT_PHRASES = 1000000
 TEMP_SQLITE_BLOOM_BUILDER_FILE_PATH = properties.SEARCH_TERMS_SUGGESTION_TEMP_DB_FILE_PATH
 SPELLCHECK_FILTERS_OUTPUT_DIR = properties.SEARCH_TERMS_SUGGESTION_BLOOM_FILTER_OUTPUT_DIR
@@ -47,7 +48,7 @@ def set_up_temp_db():
 
 def load_recent_deals():
     model = Model()
-    deals = model.load_all_steals_since(datetime.utcnow() - timedelta(days=3))
+    deals = model.load_all_steals_since(datetime.utcnow() - timedelta(days=DAYS_BACK_TO_LOAD_DEALS))
     return deals
 
 
@@ -125,56 +126,82 @@ def delete_temp_db():
     os.remove(TEMP_SQLITE_BLOOM_BUILDER_FILE_PATH)
 
 
+def build_filters():
+    logging.info("set up our temp DB")
+    set_up_temp_db()
+
+    logging.info("Figuring out all of the phrases we have in our corpus")
+    deals_count = 0
+    for deal in load_recent_deals():
+        deals_count += 1
+        try:
+            phrases = get_all_phrases_for(deal)
+            for phrase in phrases:
+                if len(phrase) < MIN_PHRASE_LENGTH:
+                    continue
+                update_count_for(phrase)
+        except Exception as e:
+            logging.exception(e)
+        if deals_count % 50 == 0:
+            logging.info("Processed %d deals so far" % deals_count)
+    logging.info("There were %d deals" % deals_count)
+
+    total_phrase_count = load_total_phrase_count()
+    logging.info("There were %d phrases - K ceiling is %d" % (total_phrase_count, UP_TO_K_MOST_FREQUENT_PHRASES))
+
+    logging.info("Building bloom filter and CM sketch")
+    bloom_filter = inbloom.Filter(
+        entries=min(UP_TO_K_MOST_FREQUENT_PHRASES, total_phrase_count),
+        error=0.001
+    )
+    cm_sketch = count_min_sketch.CountMinSketch(
+        delta=0.001,
+        epsilon=2
+    )
+    for phrase, frequency in load_up_to_k_phrases_with_frequencies(UP_TO_K_MOST_FREQUENT_PHRASES):
+        logging.debug("Loaded phrase: %s, which had frequency %d" % (phrase, frequency))
+        bloom_filter.add(phrase)
+        cm_sketch[phrase] += 1
+    logging.info("Bloom filter and sketch built OK")
+
+    return bloom_filter, cm_sketch
+
+
+def save_bloom_filter(bloom_filter):
+    hex_data = binascii.hexlify(inbloom.dump(bloom_filter))
+    with open(SPELLCHECK_FILTERS_OUTPUT_DIR + OUTPUTTED_BLOOM_FILTER_FILE_NAME, "wb") as f:
+        f.write(hex_data)
+    logging.info("Bloom filter saved to disk.")
+
+
+def load_bloom_filter():
+    with open(SPELLCHECK_FILTERS_OUTPUT_DIR + OUTPUTTED_BLOOM_FILTER_FILE_NAME, "rb") as f:
+        data = f.read()
+        return inbloom.load(binascii.unhexlify(data))
+
+
+def save_cm_sketch(cm_sketch):
+    with open(SPELLCHECK_FILTERS_OUTPUT_DIR + OUTPUTTED_CM_SKETCH_FILE_NAME, "wb") as f:
+        pickle.dump(cm_sketch, f)
+    logging.info("CM Sketch saved to disk.")
+
+
+def load_cm_sketch():
+    with open(SPELLCHECK_FILTERS_OUTPUT_DIR + OUTPUTTED_CM_SKETCH_FILE_NAME, "rb") as f:
+        return pickle.load(f)
+
+
+def delete_saved_filters():
+    os.remove(SPELLCHECK_FILTERS_OUTPUT_DIR + OUTPUTTED_BLOOM_FILTER_FILE_NAME)
+    os.remove(SPELLCHECK_FILTERS_OUTPUT_DIR + OUTPUTTED_CM_SKETCH_FILE_NAME)
+
+
 def main():
     exit_code = 0
     try:
-        logging.info("set up our temp DB")
-        set_up_temp_db()
-
-        logging.info("Figuring out all of the phrases we have in our corpus")
-        deals_count = 0
-        for deal in load_recent_deals():
-            deals_count += 1
-            try:
-                phrases = get_all_phrases_for(deal)
-                for phrase in phrases:
-                    if len(phrase) < MIN_PHRASE_LENGTH:
-                        continue
-                    update_count_for(phrase)
-            except Exception as e:
-                logging.exception(e)
-            if deals_count % 50 == 0:
-                logging.info("Processed %d deals so far" % deals_count)
-        logging.info("There were %d deals" % deals_count)
-
-        total_phrase_count = load_total_phrase_count()
-        logging.info("There were %d phrases - K ceiling is %d" % (total_phrase_count, UP_TO_K_MOST_FREQUENT_PHRASES))
-
-        logging.info("Building bloom filter and CM sketch")
-        bloom_filter = inbloom.Filter(
-            entries=min(UP_TO_K_MOST_FREQUENT_PHRASES, total_phrase_count),
-            error=0.001
-        )
-        cm_sketch = count_min_sketch.CountMinSketch(
-            delta=0.001,
-            epsilon=2
-        )
-        for phrase, frequency in load_up_to_k_phrases_with_frequencies(UP_TO_K_MOST_FREQUENT_PHRASES):
-            logging.debug("Loaded phrase: %s, which had frequency %d" % (phrase, frequency))
-            bloom_filter.add(phrase)
-            cm_sketch[phrase] += 1
-        logging.info("Bloom filter and sketch built OK")
-
-        hex_data = binascii.hexlify(inbloom.dump(bloom_filter))
-        with open(SPELLCHECK_FILTERS_OUTPUT_DIR + OUTPUTTED_BLOOM_FILTER_FILE_NAME, "wb") as f:
-            f.write(hex_data)
-        # # to deserialize:  inbloom.load(binascii.unhexlify(payload))
-        logging.info("Bloom filter saved to disk.")
-
-        with open(SPELLCHECK_FILTERS_OUTPUT_DIR + OUTPUTTED_CM_SKETCH_FILE_NAME, "wb") as f:
-            pickle.dump(cm_sketch, f)
-        logging.info("CM Sketch saved to disk.")
-
+        bloom_filter, cm_sketch = build_filters()
+        save_bloom_filter(bloom_filter)
+        save_cm_sketch(cm_sketch)
     except Exception as e:
         logging.exception(e)
         exit_code = 1
