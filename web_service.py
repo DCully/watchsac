@@ -252,9 +252,7 @@ def start_webapp(premade_db_conn_pool=None):
         }
     })
     cherrypy.server.socket_host = '0.0.0.0'
-    cherrypy.server.ssl_certificate = "cert.pem"
-    cherrypy.server.ssl_private_key = "privkey.pem"
-    cherrypy.server.socket_port = 80
+    cherrypy.server.socket_port = 8080
     cherrypy.engine.start()
 
 
