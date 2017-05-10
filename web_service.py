@@ -1,8 +1,12 @@
 import cherrypy
 from model import Model, Alert
+
 import logging
+logging.basicConfig(filename='web_service.log', level=logging.DEBUG)
+
 import utils
 import properties
+import spellchecking
 
 """
 API spec - 4 RESTful HTTPS actions
@@ -34,8 +38,6 @@ Header: 			Http basic auth username and password
 Method: 			DELETE
 Returns:			204 No Content on success, 401 on unauthorized, 404 otherwise
 """
-
-logging.basicConfig(filename='web_service.log', level=logging.DEBUG)
 
 
 class App(object):
@@ -218,6 +220,36 @@ class AlertService(object):
                 return {}
 
 
+@cherrypy.expose  # /spellcheck
+class SpellcheckingService(object):
+
+    def __init__(self):
+        # build the internal spellchecking service
+        # this automatically loads our bloom filter from the configured location on disk
+        # the service will also handle re-loading on an hourly basis
+        self.service = spellchecking.SpellcheckingService()
+
+    @cherrypy.tools.json_in()
+    @cherrypy.tools.json_out()
+    def POST(self):
+        logging.info("received POST For spellchecking service")
+        data = cherrypy.request.json
+        try:
+            search_terms_list = [x for x in data]
+            recommendations = []
+            logging.info("Received spellchecking request for terms: %s" % str(search_terms_list))
+            for st in search_terms_list:
+                recommended_alt = self.service.try_to_correct(st)
+                if recommended_alt is None:
+                    recommended_alt = st  # same string as input, if we couldn't make an improvement
+                recommendations.append(recommended_alt)
+            return recommendations
+        except Exception as e:
+            logging.exception(e)
+            cherrypy.response.status = 400
+            return  # malformed request - return 400
+
+
 def start_webapp(premade_db_conn_pool=None):
 
     model = Model(conn_pool_size=5, premade_db_conn_pool=premade_db_conn_pool)
@@ -225,6 +257,7 @@ def start_webapp(premade_db_conn_pool=None):
     account_service = AccountService(model)
     alert_service = AlertService(model)
     static_app_service = App()
+    spellchecking_service = SpellcheckingService()
 
     cherrypy.tree.mount(static_app_service, "/", {
         '/':
@@ -250,6 +283,16 @@ def start_webapp(premade_db_conn_pool=None):
             'tools.auth_basic.checkpassword': alert_service.validate_password,
             'tools.json_in.force': False
         }
+    })
+    cherrypy.tree.mount(spellchecking_service, "/spellcheck", {
+        '/':
+            {
+                'request.dispatch': cherrypy.dispatch.MethodDispatcher(),
+                'tools.auth_basic.on': True,
+                'tools.auth_basic.realm': 'localhost',
+                'tools.auth_basic.checkpassword': alert_service.validate_password,
+                'tools.json_in.force': False
+            }
     })
     cherrypy.server.socket_host = '0.0.0.0'
     cherrypy.server.socket_port = 8080

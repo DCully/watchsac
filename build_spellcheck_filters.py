@@ -22,8 +22,6 @@ user inputted search terms. To do this efficiently in the web service, this scri
 NOTE: removed CM-sketch - not scaling well, need a different approach
 """
 
-logging.basicConfig(format='%(asctime)s  -  %(message)s', level=logging.INFO)
-
 DAYS_BACK_TO_LOAD_DEALS = 14
 UP_TO_K_MOST_FREQUENT_PHRASES = 1000000
 TEMP_SQLITE_BLOOM_BUILDER_FILE_PATH = properties.SEARCH_TERMS_SUGGESTION_TEMP_DB_FILE_PATH
@@ -198,6 +196,7 @@ def delete_saved_filters():
 
 
 def main():
+    logging.basicConfig(format='%(asctime)s  -  %(message)s', level=logging.INFO)
     exit_code = 0
     try:
         bloom_filter, cm_sketch = build_filters()

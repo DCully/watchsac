@@ -306,23 +306,6 @@ class TestSpellcheckFilters(unittest.TestCase):
         bf = build_spellcheck_filters.load_bloom_filter()
         self.do_test_bloom_filter(bf)
 
-    # def do_test_cm_sketch(self, cm_sketch):
-    #     self.assertEqual(cm_sketch["arc'teryx"], 2)
-    #     self.assertEqual(cm_sketch["palapa 580p sunglasses"], 1)
-    #     self.assertEqual(cm_sketch["provide"], 2)
-    #     self.assertEqual(cm_sketch["treehouse haven"], 0)
-    #     self.assertEqual(cm_sketch["another phrase"], 0)
-    #     self.assertEqual(cm_sketch["angelsintheoutfield"], 0)
-    #     print cm_sketch["angelsintheoutfield"]
-    #
-    # def test_cm_sketch(self):
-    #     self.do_test_cm_sketch(TestSpellcheckFilters.cm_sketch)
-    #
-    # def test_cm_sketch_serialization(self):
-    #     build_spellcheck_filters.save_cm_sketch(TestSpellcheckFilters.cm_sketch)
-    #     cm = build_spellcheck_filters.load_cm_sketch()
-    #     self.do_test_cm_sketch(cm)
-
 
 class TestSpellcheckingService(unittest.TestCase):
 
@@ -353,6 +336,21 @@ class TestSpellcheckingService(unittest.TestCase):
         self.assertEqual(service.try_to_correct("pallm leaf roofs"), "palm leaf roofs")
         self.assertEqual(service.try_to_correct("pal12m leaf roofs"), "palm leaf roofs")
         self.assertEqual(service.try_to_correct("pallm leaf rofs"), "palm leaf roofs")
+
+    def test_through_http_api(self):
+        u = "test_spelling"
+        p = "spelling"
+        TestAccountService.sign_up(u, p, "valid_new_account_key", "+10123456789")
+        resp = requests.post(
+            "http://localhost:8080/spellcheck",
+            auth=(u, p),
+            json=["arcterx", "no way this one matches anything, right?", "Costa Plapa 570P"]
+        )
+        self.assertEqual(resp.status_code, 200)
+        results = json.loads(resp.text)
+        self.assertEqual(results[0], "arc'teryx")
+        self.assertEqual(results[1], "no way this one matches anything, right?")
+        self.assertEqual(results[2], "costa palapa 580p")
 
 
 def set_up_db():
