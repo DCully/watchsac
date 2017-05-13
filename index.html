@@ -66,6 +66,18 @@
       </div>
       <input id="new_account_setup_submit_button" class="button" type="button" value="Submit">
     </form>
+    <ul>
+    Some Guidelines:
+    <li>
+      The phone number must have no spaces, and it should start with a '+', then a '1', and then your normal phone number (e.g., '+10123456789').
+    </li>
+    <li>
+      Your username and password must both be at least 8 characters long.
+    </li>
+      <li>
+        If you don't know what the 'key' is... let me know! I'll send you the current one. :-)
+      </li>
+  </ul>
   </div>
 
   <!-- Page for viewing your current alerts -->
@@ -97,9 +109,26 @@
         <label for="search_terms_input">Phrases to look for (comma-separated, less than 150 characters):</label>
         <textarea class="u-full-width" placeholder="" id="search_terms_input"></textarea>
         <input id="spellcheck_submit_button" class="button" type="button" value="Correct Spelling">
+        <input id="forecast_submit_button" class="button" type="button" value="Get Forecast">
         <input id="save_alert_submit_button" class="button" type="button" value="Save">
       </div>
     </form>
+  </div>
+
+  <!-- Page for viewing forecasting results -->
+  <div id="forecasting_results_page" style=position:relative;margin-left:auto;margin-right:auto;width:80%;display:none;">
+    <h3 style="color:navy;width:100%;text-align:center;">Forecasting Results</h3>
+    <table class="u-full-width">
+      <thead>
+      <tr>
+        <th>Search Term</th>
+        <th>Recent Match Frequency</th>
+      </tr>
+      </thead>
+      <tbody id="forecasting_results_table"> <!-- dynamically adding/removing trs -->
+      </tbody>
+    </table>
+    <input id="new_alert_nav_button" class="button" type="button" value="OK">
   </div>
 
   <script src="watchsac.js"></script>

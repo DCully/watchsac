@@ -7,6 +7,7 @@ logging.basicConfig(filename='web_service.log', level=logging.DEBUG)
 import utils
 import properties
 import spellchecking
+import forecasting
 
 """
 API spec - 4 RESTful HTTPS actions
@@ -250,6 +251,31 @@ class SpellcheckingService(object):
             return  # malformed request - return 400
 
 
+@cherrypy.expose  # /forecast
+class ForecastingService(object):
+
+    def __init__(self):
+        self.service = forecasting.ForecastingService()
+
+    @cherrypy.tools.json_in()
+    @cherrypy.tools.json_out()
+    def POST(self):
+        logging.info("received POST to forecasting service")
+        data = cherrypy.request.json
+        try:
+            search_terms_list = [x for x in data]
+            counts = {}
+            logging.info("Received spellchecking request for terms: %s" % str(search_terms_list))
+            for st in search_terms_list:
+                counts[st] = self.service.get_count_for(st)
+            counts["(all of them combined)"] = self.service.get_count_for_all(search_terms_list)
+            return counts
+        except Exception as e:
+            logging.exception(e)
+            cherrypy.response.status = 400
+            return  # malformed request - return 400
+
+
 def start_webapp(premade_db_conn_pool=None):
 
     model = Model(conn_pool_size=5, premade_db_conn_pool=premade_db_conn_pool)
@@ -258,6 +284,7 @@ def start_webapp(premade_db_conn_pool=None):
     alert_service = AlertService(model)
     static_app_service = App()
     spellchecking_service = SpellcheckingService()
+    forecasting_service = ForecastingService()
 
     cherrypy.tree.mount(static_app_service, "/", {
         '/':
@@ -285,6 +312,16 @@ def start_webapp(premade_db_conn_pool=None):
         }
     })
     cherrypy.tree.mount(spellchecking_service, "/spellcheck", {
+        '/':
+            {
+                'request.dispatch': cherrypy.dispatch.MethodDispatcher(),
+                'tools.auth_basic.on': True,
+                'tools.auth_basic.realm': 'localhost',
+                'tools.auth_basic.checkpassword': alert_service.validate_password,
+                'tools.json_in.force': False
+            }
+    })
+    cherrypy.tree.mount(forecasting_service, "/forecast", {
         '/':
             {
                 'request.dispatch': cherrypy.dispatch.MethodDispatcher(),

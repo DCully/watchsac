@@ -7,12 +7,13 @@ var NEW_ALERT_PAGE = "new_alert_page";
 var NEW_ACCOUNT_SETUP_PAGE = "new_account_setup_page";
 var LOGIN_PAGE = "login_page";
 var ALERTS_PAGE = "alerts_page";
+var FORECASTING_RESULTS_PAGE = "forecasting_results_page";
 
-function deleteAllAlertsFromTable() {
-    var alertsTable = document.getElementById('alerts_table');
+function deleteBodyFromTable(table_id) {
+    var table = document.getElementById(table_id);
     var new_tbody = document.createElement('tbody');
-    new_tbody.setAttribute('id', 'alerts_table');
-    alertsTable.parentNode.replaceChild(new_tbody, alertsTable);
+    new_tbody.setAttribute('id', table_id);
+    table.parentNode.replaceChild(new_tbody, table);
 }
 
 function addAlertToTable(id, message, searchTerms) {
@@ -34,6 +35,18 @@ function addAlertToTable(id, message, searchTerms) {
     newTr.appendChild(deleteButtonTd);
 
     alertsTable.appendChild(newTr);
+}
+
+function addForecastingResult(search_term, frequency) {
+    var table = document.getElementById('forecasting_results_table');
+    var newTr = document.createElement('TR');
+    var stTd = document.createElement('TD');
+    stTd.innerHTML = search_term;
+    newTr.appendChild(stTd);
+    var frTd = document.createElement('TD');
+    frTd.innerHTML = frequency;
+    newTr.appendChild(frTd);
+    table.appendChild(newTr);
 }
 
 function SearchTermsJSONConverter()
@@ -66,6 +79,7 @@ function ApiClient(u, p)
     var accounts_ep = "/accounts";
     var alerts_ep = "/alerts";
     var spellcheck_ep = "/spellcheck";
+    var forecast_ep = "/forecast";
     var username = u;
     var password = p;
 
@@ -107,7 +121,7 @@ function ApiClient(u, p)
         }).done(
             function(data) {
                 console.log(data);
-                deleteAllAlertsFromTable();
+                deleteBodyFromTable('alerts_table');
                 for (var i=0; i < data.length; i++) {
                     var alert = data[i];
                     addAlertToTable(alert["id"], alert["name"], alert["search_terms"]);
@@ -157,7 +171,6 @@ function ApiClient(u, p)
 
     this.checkSpelling = function(textbox_input) {
         var searchTermsConverter = new SearchTermsJSONConverter();
-
         $.ajax({
             url: api_url + spellcheck_ep,
             beforeSend: this.addBasicAuth,
@@ -175,6 +188,34 @@ function ApiClient(u, p)
             }
         );
     };
+
+    // NOTE: this is a POST, even though it's a "get" semantically, so that the terms in the body will be encrypted
+    this.getForecast = function(textbox_input) {
+        var searchTermsConverter = new SearchTermsJSONConverter();
+        $.ajax({
+            url: api_url + forecast_ep,
+            beforeSend: this.addBasicAuth,
+            method: "POST",
+            data: searchTermsConverter.toJSON(textbox_input),
+            contentType: 'application/json'
+        }).done(
+            function(data) {
+                deleteBodyFromTable('forecasting_results_table');
+                for (var key in data) {
+                    if (data.hasOwnProperty(key)) {
+                        var search_term = key;
+                        var frequency = data[search_term];
+                        addForecastingResult(search_term, frequency);
+                    }
+                }
+                goToPage(FORECASTING_RESULTS_PAGE);
+            }
+        ).fail(
+            function() {
+                alert("Forecasting call failed due to some server error");
+            }
+        );
+    }
 }
 
 function goToPage(page_name)
@@ -414,6 +455,10 @@ function handleCheckSpellingButtonClick() {
     apiClient.checkSpelling(document.getElementById('search_terms_input').value);
 }
 
+function handleForecastButtonClick() {
+    apiClient.getForecast(document.getElementById('search_terms_input').value);
+}
+
 $(document).ready(function() {
 
     // fill the pages associative array (this is just a convenience)
@@ -421,6 +466,7 @@ $(document).ready(function() {
     pages[ALERTS_PAGE] = $("#" + ALERTS_PAGE);
     pages[LOGIN_PAGE]  = $("#" + LOGIN_PAGE);
     pages[NEW_ACCOUNT_SETUP_PAGE] = $("#" + NEW_ACCOUNT_SETUP_PAGE);
+    pages[FORECASTING_RESULTS_PAGE] = $("#" + FORECASTING_RESULTS_PAGE);
 
     // register our static button click handlers
     $("#login_submit_button").click(handleLogIn);
@@ -430,6 +476,8 @@ $(document).ready(function() {
     $("#sign_up_nav_button").click(handleSignUpNavClick);
     $("#new_alert_setup_nav_button").click(handleNewAlertSetupNavClick);
     $("#spellcheck_submit_button").click(handleCheckSpellingButtonClick);
+    $("#forecast_submit_button").click(handleForecastButtonClick);
+    $("#new_alert_nav_button").click(handleNewAlertSetupNavClick);
 
     // tell jquery to allow cross-origin requests
     $.support.cors = true
