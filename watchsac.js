@@ -1,4 +1,4 @@
-var API_URL = "https://watchsac.com";
+var API_URL = "http://localhost:8080";
 
 var apiClient = null;
 
@@ -36,6 +36,24 @@ function addAlertToTable(id, message, searchTerms) {
     alertsTable.appendChild(newTr);
 }
 
+function SearchTermsJSONConverter()
+{
+    this.fromJSON = function(json) {
+        var results = "";
+        for (var i=0; i < json.length; i++) {
+            results = results + json[i] + ",";
+        }
+        results = results.slice(0, results.length - 1);
+        return results;
+    };
+
+    this.toJSON = function(comma_separated_str) {
+        return JSON.stringify(
+            comma_separated_str.split(",")
+        );
+    };
+}
+
 function ApiClient(u, p)
 {
     // This client provides four methods to interact with the API:
@@ -47,6 +65,7 @@ function ApiClient(u, p)
     var api_url = API_URL;
     var accounts_ep = "/accounts";
     var alerts_ep = "/alerts";
+    var spellcheck_ep = "/spellcheck";
     var username = u;
     var password = p;
 
@@ -73,7 +92,6 @@ function ApiClient(u, p)
         }).fail(
             function(xhr, status, error) {
                 console.log("Save failed for some reason...");
-                alert('error:' + status + ':' + error + ':' + xhr.responseText);
                 alert("A server error occurred saving your new account - please try again.");
                 goToPage(NEW_ACCOUNT_SETUP_PAGE);
             }
@@ -133,6 +151,27 @@ function ApiClient(u, p)
         ).fail(
             function(data) {
                 alert("Save failed.");
+            }
+        );
+    };
+
+    this.checkSpelling = function(textbox_input) {
+        var searchTermsConverter = new SearchTermsJSONConverter();
+
+        $.ajax({
+            url: api_url + spellcheck_ep,
+            beforeSend: this.addBasicAuth,
+            method: "POST",
+            data: searchTermsConverter.toJSON(textbox_input),
+            contentType: 'application/json'
+        }).done(
+            function(data) {
+                var txt = searchTermsConverter.fromJSON(data);
+                document.getElementById('search_terms_input').value = txt;
+            }
+        ).fail(
+            function() {
+                alert("Spellchecking failed due to some server error");
             }
         );
     };
@@ -371,6 +410,10 @@ function handleDeleteAlertButtonClick(alert_id) {
     apiClient.deleteAlert(alert_id);
 }
 
+function handleCheckSpellingButtonClick() {
+    apiClient.checkSpelling(document.getElementById('search_terms_input').value);
+}
+
 $(document).ready(function() {
 
     // fill the pages associative array (this is just a convenience)
@@ -386,6 +429,7 @@ $(document).ready(function() {
     $("#refresh_alerts_submit_button").click(handleRefreshAlerts);
     $("#sign_up_nav_button").click(handleSignUpNavClick);
     $("#new_alert_setup_nav_button").click(handleNewAlertSetupNavClick);
+    $("#spellcheck_submit_button").click(handleCheckSpellingButtonClick);
 
     // tell jquery to allow cross-origin requests
     $.support.cors = true
