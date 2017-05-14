@@ -1,7 +1,7 @@
 from bs4 import BeautifulSoup
 import requests
 import logging
-from model import Model
+from model import Model, CurrentSteal
 import json
 import os, signal
 
@@ -12,19 +12,23 @@ This process scrapes the current steal off of Steep and Cheap and stuffs it into
 logging.basicConfig(filename='scrape_and_save.log', level=logging.DEBUG)
 
 
-def get_current_steal_url():
+def get_current_steal_data():
     url = None
+    sale_price = None
+    brand_name = None
     try:
         resp = requests.get("https://www.steepandcheap.com/data/odat.json")
         assert resp.status_code == 200, "did not get a 200 back from odat.json url"
         jobj = json.loads(resp.text)
         url = "https://www.steepandcheap.com" + jobj["url"]
-        logging.info("current steal url: %s" % url)
+        sale_price = jobj["salePrice"]
+        brand_name = jobj["brandName"]
+        logging.info("current steal data: %s - %s - %s" % (brand_name, sale_price, url))
     except Exception as e:
         print e.message
         logging.exception(e)
     finally:
-        return url
+        return brand_name, sale_price, url
 
 
 def scrape_current_steal_product_name_and_description(url):
@@ -51,7 +55,7 @@ def scrape_current_steal_product_name_and_description(url):
 
 
 def main():
-    url = get_current_steal_url()
+    brand_name, sale_price, url = get_current_steal_data()
     if url is not None:
         title, prod_desc = scrape_current_steal_product_name_and_description(url)
         if title is not None and prod_desc is not None:
@@ -60,7 +64,7 @@ def main():
             if str(current_steal.product_name) != str(title):
                 # we've already captured this iteration of the deal - don't save it again
                 logging.info("This deal is new - save it")
-                model.save_current_steal(title, prod_desc)
+                model.save_current_steal(CurrentSteal(None, title, prod_desc, brand_name, sale_price, url))
             logging.info("Save went ok, killing myself now")
     os.kill(os.getpid(), signal.SIGKILL)
 

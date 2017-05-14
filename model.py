@@ -49,10 +49,13 @@ class Alert(object):
 
 class CurrentSteal(object):
     """ Data object for current steal rows. """
-    def __init__(self, deal_id, product_name, product_description):
-        self.deal_id = deal_id
-        self.product_name = product_name
-        self.product_description = product_description
+    def __init__(self, deal_id, product_name, product_description, brand_name, sale_price, url):
+        self.deal_id = None if deal_id is None else int(deal_id)
+        self.product_name = product_name[:253]
+        self.product_description = product_description[:4093]
+        self.sale_price = None if sale_price is None else float(sale_price)
+        self.brand_name = None if brand_name is None else brand_name[:62]
+        self.url = None if url is None else url[:126]
 
 
 class User(object):
@@ -252,22 +255,24 @@ class Model(object):
     # read/write current steal records
     #
 
-    def save_current_steal(self, title, product_description):
-        logging.info("Saving title and product desc:  %s - %s" % (title, product_description))
+    def save_current_steal(self, current_steal_obj):
+        assert type(current_steal_obj) is CurrentSteal
+        logging.info("Saving name and product desc:  %s - %s"
+                     % (current_steal_obj.product_name, current_steal_obj.product_description))
         db_conn = None
         try:
-            # trim for max table sizes
-            title = title[:254]
-            product_description = product_description[:4094]
             db_conn = self.conn_pool.get_conn()
             with db_conn.cursor() as cursor:
-                sql = "insert into deals (product_name, product_description) values (%s, %s)"
+                sql = "insert into deals " \
+                      "(product_name, product_description, sale_price, brand_name, url) " \
+                      "values (%s, %s, %s, %s, %s)"
                 cursor.execute(
                     sql,
-                    (title, product_description)
+                    (current_steal_obj.product_name, current_steal_obj.product_description,
+                     current_steal_obj.sale_price, current_steal_obj.brand_name, current_steal_obj.url)
                 )
                 db_conn.commit()
-            logging.info("Save success for title: %s" % (title,))
+            logging.info("Save success for name: %s" % (current_steal_obj.product_name,))
         except Exception as e:
             logging.error("An exception occurred saving the title and product description: ")
             logging.error(e)
@@ -278,7 +283,8 @@ class Model(object):
     def load_current_steal(self):
         """ Returns a CurrentSteal instance, or None. """
         logging.info("Loading current steal...")
-        sql = "select deals.id, deals.product_name, deals.product_description " \
+        sql = "select " \
+              "deals.id, deals.product_name, deals.product_description, deals.brand_name, deals.sale_price, deals.url " \
               "from deals " \
               "order by deals.created desc limit 1 "
         result = None
@@ -288,7 +294,7 @@ class Model(object):
             cursor = db_conn.cursor()
             cursor.execute(sql)
             r = cursor.fetchall()[0]
-            result = CurrentSteal(r[0], r[1], r[2])
+            result = CurrentSteal(r[0], r[1], r[2], r[3], r[4], r[5])
         except Exception as e:
             logging.error("An exception occurred loading current steal from the database:")
             logging.error(e)
@@ -300,7 +306,9 @@ class Model(object):
     def load_all_steals_since(self, datetime_obj):
         """ Returns a list of 0 or more CurrentSteals. """
         logging.info("Loading current steals since %s" % str(datetime_obj))
-        sql = "select deals.id, deals.product_name, deals.product_description from deals where deals.created > %s"
+        sql = "select " \
+              "deals.id, deals.product_name, deals.product_description, deals.brand_name, deals.sale_price, deals.url" \
+              "from deals where deals.created > %s"
         results = []
         db_conn = None
         try:
@@ -309,7 +317,7 @@ class Model(object):
             cursor.execute(sql, (datetime_obj,))
             rs = cursor.fetchall()
             for r in rs:
-                results.append(CurrentSteal(r[0], r[1], r[2]))
+                results.append(CurrentSteal(r[0], r[1], r[2], r[3], r[4], r[5]))
         except Exception as e:
             logging.exception(e)
         finally:

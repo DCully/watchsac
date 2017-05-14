@@ -55,3 +55,8 @@ create table new_account_keys (
 
 -- turns out we need to have duplicate deals, because they re-run them sometimes
 alter table deals drop index product_name;
+
+-- let's store some more info about these deals while we're at it
+alter table deals add sale_price decimal(6,2);
+alter table deals add brand_name varchar(64);
+alter table deals add url varchar(128);
