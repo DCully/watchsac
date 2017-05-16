@@ -60,3 +60,19 @@ alter table deals drop index product_name;
 alter table deals add sale_price decimal(6,2);
 alter table deals add brand_name varchar(64);
 alter table deals add url varchar(128);
+
+-- adding account text message based activation
+alter table users add active int default 0;
+
+drop table if exists account_activation_keys;
+
+create table account_activation_keys
+(
+	id int primary key auto_increment,
+    phone_number varchar(55),
+    activation_key varchar(128),
+    received int default 0,
+    created timestamp default now()
+
+) ENGINE=InnoDB DEFAULT CHARSET=utf8 COLLATE=utf8_bin;
+

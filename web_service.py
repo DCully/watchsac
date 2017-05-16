@@ -8,36 +8,56 @@ import utils
 import properties
 import spellchecking
 import forecasting
+import sms
 
 """
-API spec - 4 RESTful HTTPS actions
+API spec
 
 Base URL:  https://watchsac.com
 
-1) create account with a new account key
+confirm phone number
+URL: 			    https://watchsac.com/accounts
+Method: 			PUT
+Request body:  	    {"pn": "?", "conf_key": "?"}
+Returns:			200 if OK, 400 if conf key doesnt match
+
+create account with a new account key
 URL: 			    https://watchsac.com/accounts
 Method: 			POST
 Request body:  	    {"u": "?", "p": "?", "key": "?", "pn": "?"}
 Returns:			200 if OK, 400 is username/password is bad, 401 if key was wrong
 
-2) get all current alerts
+get all current alerts
 URL:      			https://watchsac.com/alerts
 Header: 			Http basic auth username and password
 Method: 			GET
 Returns:			200 and JSON alerts list if OK, 401 if unauthorized, 404 otherwise
 
-3) save a new alert or update an existing alert (update if ID field is present, new otherwise)
+save a new alert or update an existing alert (update if ID field is present, new otherwise)
 URL:      			https://watchsac.com/alerts
 Header: 			Http basic auth username and password
 Method: 			POST
 Request body:	    {"id": 5, "name": "my alert name", "search_terms": ["patagonia", "sweater", "wool"]}
 Returns:			200 if OK, 401 if unauthorized, 404 otherwise
 
-4) delete an existing alert
+delete an existing alert
 URL:      			https://watchsac.com/alerts?id=<?>
 Header: 			Http basic auth username and password
 Method: 			DELETE
 Returns:			204 No Content on success, 401 on unauthorized, 404 otherwise
+
+spellcheck some search terms
+URL:      			https://watchsac.com/spellcheck
+Header: 			Http basic auth username and password
+Method: 			POST
+Returns:			200 on success with a JSON list of strings (with spelling corrected, in the same order) - 40x otherwise
+
+get recent historical frequency for some search terms
+URL:      			https://watchsac.com/forecast
+Header: 			Http basic auth username and password
+Method: 			POST
+Returns:			200 on success with a JSON object mapping search terms to counts on success - 40x otherwise
+
 """
 
 
@@ -51,12 +71,13 @@ class AccountService(object):
 
     def __init__(self, model):
         self.model = model
+        self.sms_client = sms.TwilioSMSClient()
 
     @staticmethod
-    def __has_valid_json_data(req_json):
+    def __has_valid_json_data(req_json, expected_params=("u", "p", "key", "pn")):
         # expecting:
         # {"u": "less-than-40-chars", "less-than-40-chars": "?", "key": "(not checked here)", "pn": "+1234567890"}
-        for expected_param in ["u", "p", "key", "pn"]:
+        for expected_param in expected_params:
             if expected_param not in req_json:
                 return False
         return True
@@ -101,11 +122,6 @@ class AccountService(object):
             return True
         return False
 
-    def __save_new_account(self, username, password, phone_number):
-        """ Takes a sanitized username, password, and phone number, then saves a row for them in the users table.
-        Returns a User object if successful - None otherwise. """
-        return self.model.save_user(phone_number, username, utils.encrypt(password))
-
     @cherrypy.tools.accept(media='application/json')
     @cherrypy.tools.json_in()
     @cherrypy.tools.json_out()
@@ -136,6 +152,52 @@ class AccountService(object):
         else:
             logging.info("Something went wrong with an account setup request: %s" % str(data))
             cherrypy.response.status = 400  # collision in the DB - assume it was a dup record
+
+    def __is_valid_conf_pair(self, pn, conf_key):
+        """ load conf keys from DB and make sure this pn-conf_key pair is in there """
+        for pair in self.model.load_activation_key_pairs():
+            phone_number = pair.phone_number
+            activation_key = pair.activation_key
+            if str(pn) == str(phone_number) and str(activation_key) == str(conf_key):
+                return True
+        return False
+
+    def __send_activation_text_msg(self, phone_number, activation_key):
+        if properties.USE_SMS_ACCOUNT_SETUP_VALIDATION:
+            return self.sms_client.send_activation_key(phone_number, activation_key)
+
+    def __activate_account(self, u, pn):
+        self.model.activate_user(u, pn)
+
+    def __save_new_account(self, username, password, phone_number):
+        """ Takes a sanitized username, password, and phone number, then saves a row for them in the users table.
+        Returns a User object if successful - None otherwise. """
+        activation_key = utils.generate_new_activation_key()
+        self.model.save_activation_key_pair(phone_number, activation_key)
+        self.__send_activation_text_msg(phone_number, activation_key)
+        return self.model.save_user(phone_number, username, utils.encrypt(password))
+
+    @cherrypy.tools.accept(media='application/json')
+    @cherrypy.tools.json_in()
+    @cherrypy.tools.json_out()
+    def PUT(self):
+        """ Try to an account record with the given username and phone number, and then check that the
+        confirmation key matches the one we saved when they initially POSTed in to this endpoint. """
+        logging.info("Received new account phone number confirmation request")
+        data = cherrypy.request.json
+        cherrypy.response.status = 400
+        if self.__has_valid_json_data(data, expected_params=("u", "pn", "conf_key")) is False:
+            logging.info("Bad JSON for account confirmation request: %s" % str(data))
+        elif utils.is_valid_username(data["u"]) is False:
+            logging.info("Bad username for account confirmation request - %s" % str(data))
+        elif utils.is_valid_phone_number(data["pn"]) is False:
+            logging.info("Bad phone number PUT to /accounts: %s" % str(data))
+        elif self.__is_valid_conf_pair(data["pn"], data["conf_key"]):
+            logging.info("Bad conf key PUT to /accounts: %s" % str(data))
+        else:
+            logging.info("Successful account activation request PUT to /accounts: %s" % str(data))
+            self.__activate_account(data["u"], data["pn"])
+            cherrypy.response.status = 200
 
 
 @cherrypy.expose  # /alerts

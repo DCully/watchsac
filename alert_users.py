@@ -1,8 +1,7 @@
 import logging
 from fuzzywuzzy import fuzz
-from twilio.rest import Client
-import properties
 from model import Model
+import sms
 
 """
 This process loads active alerts, determines whether these alerts
@@ -41,28 +40,11 @@ def filter_alerts_by_current_steal_is_relevant(all_active_alerts, current_steal)
     return filtered_alerts
 
 
-def send_alert(alert):
-    """ Send a text message to alert the user about the current steal using the Twilio API. """
-    try:
-        client = Client(properties.TWILIO_ACCOUNT_SID, properties.TWILIO_AUTH_TOKEN)
-        message = client.messages.create(
-            to=alert.phone_number,
-            from_=properties.TWILIO_PHONE_NUMBER,
-            body="Look at steepandcheap.com for " + alert.alert_name
-        )
-        logging.info("Alert text msg sent to " + alert.phone_number + ", twilio sid: " + message.sid)
-        return True
-    except Exception as e:
-
-        logging.error("An error occurred sending an alert:")
-        logging.error(e)
-        return False
-
-
 def send_and_record_alerts(alerts_to_send, current_steal, model):
     """ Sends out text messages and records each one sent out in the DB. """
+    sms_client = sms.TwilioSMSClient()
     for alert in alerts_to_send:
-        if send_alert(alert):
+        if sms_client.send_alert(alert):
             model.save_sent_alert(alert, current_steal.deal_id)
 
 

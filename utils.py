@@ -1,4 +1,8 @@
 from passlib.hash import pbkdf2_sha512
+import random
+
+_ACTIVATION_KEY_CHARS = "abcdefghijklmnopqrstuvwxyz0123456789"
+_ACTIVATION_KEY_LENGTH = 20
 
 
 def is_valid_phone_number(phone_number):
@@ -31,3 +35,7 @@ def encrypt(password):
 
 def verify(password_attempt, hash):
     return pbkdf2_sha512.verify(password_attempt, hash)
+
+
+def generate_new_activation_key():
+    return "".join([_ACTIVATION_KEY_CHARS[random.randint(0, len(_ACTIVATION_KEY_CHARS) - 1)] for x in range(_ACTIVATION_KEY_LENGTH)])

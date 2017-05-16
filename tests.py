@@ -8,19 +8,45 @@ import json
 import build_spellcheck_filters
 import spellchecking
 import forecasting
+import model
+import logging
 
-# This test suite runs against the actual cherrypy webapp with a mysql back-end running locally behind it.
-# It will wipe the database you run it against before every run. Start the web service separately.
+logging.basicConfig(level=logging.DEBUG)
+model_obj = model.Model()
+
+"""
+1) Build spellcheck filters
+2) launch web service
+3) run tests.py
+"""
 
 
 class TestAccountService(unittest.TestCase):
 
     @staticmethod
+    def _load_conf_key_for_pn(pn):
+        pairs = model_obj.load_activation_key_pairs()
+        for pair in pairs:
+            if str(pair.phone_number) == str(pn):
+                return pair.activation_key
+        return None
+
+    @staticmethod
     def sign_up(username, password, key, phone_number):
-        return requests.post(
+        status_code = requests.post(
             "http://localhost:8080/accounts",
             json={"u": username, "p": password, "key": key, "pn": phone_number}
         ).status_code
+        if status_code != 200:
+            return status_code
+        else:
+            # activate the account using the PUT method
+            # (look up activation key in DB instead of getting it via SMS)
+            conf_key = TestAccountService._load_conf_key_for_pn(phone_number)
+            return requests.put(
+                "http://localhost:8080/accounts",
+                json={"u": username, "pn": phone_number, "conf_key": conf_key}
+            ).status_code
 
     def test_valid_signups(self):
         self.assertEqual(TestAccountService.sign_up("test_user", "test_pwd", "valid_new_account_key", "+15555555555"), 200)
@@ -64,7 +90,7 @@ class TestAccountService(unittest.TestCase):
     def test_other_http_methods_disallowed(self):
         resp = requests.get("http://localhost:8080/accounts")
         self.assertEqual(resp.status_code, 405)
-        resp = requests.put("http://localhost:8080/accounts", json={})
+        resp = requests.delete("http://localhost:8080/accounts", json={})
         self.assertEqual(resp.status_code, 405)
 
 
@@ -275,6 +301,17 @@ class TestUtils(unittest.TestCase):
         self.assertTrue(utils.verify(pwd, x))
         self.assertFalse(utils.verify("bad pwd", x))
 
+    def test_generate_new_activation_key(self):
+        a1 = utils.generate_new_activation_key()
+        a2 = utils.generate_new_activation_key()
+        self.assertNotEqual(a1, a2)
+        self.assertEqual(len(a1), utils._ACTIVATION_KEY_LENGTH)
+        self.assertEqual(len(a2), utils._ACTIVATION_KEY_LENGTH)
+        for c in a1:
+            self.assertTrue(c in utils._ACTIVATION_KEY_CHARS)
+        for c in a2:
+            self.assertTrue(c in utils._ACTIVATION_KEY_CHARS)
+
 
 class TestSpellcheckFilters(unittest.TestCase):
 
@@ -283,6 +320,10 @@ class TestSpellcheckFilters(unittest.TestCase):
 
     @classmethod
     def setUpClass(cls):
+        try:
+            os.remove(properties.SEARCH_TERMS_SUGGESTION_TEMP_DB_FILE_PATH)
+        except:
+            pass
         TestSpellcheckFilters.bloom_filter, TestSpellcheckFilters.cm_sketch = build_spellcheck_filters.build_filters()
 
     @classmethod
@@ -314,6 +355,10 @@ class TestSpellcheckingService(unittest.TestCase):
 
     @classmethod
     def setUpClass(cls):
+        try:
+            os.remove(properties.SEARCH_TERMS_SUGGESTION_TEMP_DB_FILE_PATH)
+        except:
+            pass
         bloom_filter, cm_sketch = build_spellcheck_filters.build_filters()
         build_spellcheck_filters.save_bloom_filter(bloom_filter)
         TestSpellcheckingService.service = spellchecking.SpellcheckingService()
@@ -361,6 +406,10 @@ class TestForecasting(unittest.TestCase):
 
     @classmethod
     def setUpClass(cls):
+        try:
+            os.remove(properties.SEARCH_TERMS_SUGGESTION_TEMP_DB_FILE_PATH)
+        except:
+            pass
         build_spellcheck_filters.main()
         sets, keys = build_spellcheck_filters.load_forecasting_sets()
         TestForecasting.s = sets
@@ -399,7 +448,7 @@ class TestForecasting(unittest.TestCase):
         )
         self.assertEqual(resp.status_code, 200)
         results = json.loads(resp.text)
-        self.assertEqual(len(results), 3)
+        self.assertEqual(len(results), 4)
         self.assertEqual(results["palisade pants"], 1)
         self.assertEqual(results["ubuntu linux"], 0)
         self.assertEqual(results["provide"], 2)
@@ -407,6 +456,10 @@ class TestForecasting(unittest.TestCase):
 
 
 def set_up_db():
+    try:
+        os.remove(properties.SEARCH_TERMS_SUGGESTION_TEMP_DB_FILE_PATH)
+    except:
+        pass
     conn_pool = mysql.DBConnPool()
     cmd = "mysql --user=" + properties.MYSQL_USER + " --password=" + properties.MYSQL_PASSWORD + " < " + os.getcwd() + "/schema.ddl"
     print(cmd)
@@ -422,17 +475,19 @@ def set_up_db():
               "values "
               "(2, 'not_valid_new_account_key', 0)")
     c.execute(
-        "insert into deals (product_name, product_description) values (%s, %s)",
+        "insert into deals (product_name, product_description, url) values (%s, %s, %s)",
         (
             """Arc'teryx Palisade Pant - Men's""",
-            """The Arc'teryx Men's Palisade Pants provide an air-permeable construction that's better than any pair of breathable hiking pants you've ever worn."""
+            """The Arc'teryx Men's Palisade Pants provide an air-permeable construction that's better than any pair of breathable hiking pants you've ever worn.""",
+            "x"
         )
     )
     c.execute(
-        "insert into deals (product_name, product_description) values (%s, %s)",
+        "insert into deals (product_name, product_description, url) values (%s, %s, %s)",
         (
             "Costa Palapa 580P Sunglasses - Polarized",
-            "Palapas are open-sided dwellings made with thatched palm leaf roofs that provide protection from the harsh tropical sun."
+            "Palapas are open-sided dwellings made with thatched palm leaf roofs that provide protection from the harsh tropical sun.",
+            "x"
         )
     )
     conn.commit()

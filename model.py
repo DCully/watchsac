@@ -1,5 +1,6 @@
 import mysql
 import logging
+from datetime import datetime, timedelta
 
 
 class Alert(object):
@@ -49,7 +50,8 @@ class Alert(object):
 
 class CurrentSteal(object):
     """ Data object for current steal rows. """
-    def __init__(self, deal_id, product_name, product_description, brand_name, sale_price, url):
+    def __init__(self, deal_id, product_name, product_description, brand_name, sale_price, url, created):
+        self.created = created
         self.deal_id = None if deal_id is None else int(deal_id)
         self.product_name = product_name[:253]
         self.product_description = product_description[:4093]
@@ -72,6 +74,13 @@ class NewAccountKey(object):
     def __init__(self, _id, key):
         self._id = _id
         self.key = key
+
+
+class ActivationKeyPair(object):
+    """ Data object for account activation keys. """
+    def __init__(self, phone_number, activation_key):
+        self.phone_number = phone_number
+        self.activation_key = activation_key
 
 
 class Model(object):
@@ -117,13 +126,52 @@ class Model(object):
         return results
 
     #
+    # read/write activation key mappings
+    #
+    def save_activation_key_pair(self, phone_number, account_activation_key):
+        logging.info("Saving activation key pair")
+        sql = "insert into account_activation_keys (phone_number, activation_key) values (%s, %s)"
+        db_conn = None
+        try:
+            db_conn = self.conn_pool.get_conn()
+            cursor = db_conn.cursor()
+            cursor.execute(sql, (phone_number, account_activation_key))
+            db_conn.commit()
+            logging.info("account activation key inserted ok - %s - %s" % (phone_number, account_activation_key))
+        except Exception as e:
+            logging.exception("An exception occurred saving an activation key pair to the database:")
+        finally:
+            if db_conn is not None:
+                self.conn_pool.return_conn(db_conn)
+
+    def load_activation_key_pairs(self):
+        logging.info("Loading recent activation key pairs")
+        sql = "select phone_number, activation_key from account_activation_keys where created > %s"
+        db_conn = None
+        try:
+            db_conn = self.conn_pool.get_conn()
+            cursor = db_conn.cursor()
+            cursor.execute(sql, (datetime.utcnow() - timedelta(minutes=10)))
+            rs = cursor.fetchall()
+            results = []
+            for r in rs:
+                results.append(ActivationKeyPair(r[0], r[1]))
+            logging.info("Loaded %d recent activation key pairs" % len(results))
+            return results
+        except Exception as e:
+            logging.exception("An exception occurred loading activation key pairs from the database:")
+        finally:
+            if db_conn is not None:
+                self.conn_pool.return_conn(db_conn)
+
+    #
     # read/write users
     #
 
     def load_users(self):
-        """ Returns a list of Users. """
+        """ Returns a list of activated Users. """
         logging.info("Loading users in model...")
-        sql = "select users.id, users.phone_number, users.username, users.password from users"
+        sql = "select users.id, users.phone_number, users.username, users.password from users where users.active=1"
         results = []
         db_conn = None
         try:
@@ -168,6 +216,22 @@ class Model(object):
             if db_conn is not None:
                 self.conn_pool.return_conn(db_conn)
         return result
+
+    def activate_user(self, username, phone_number):
+        logging.info("Activating user %s - %s" % (username, phone_number))
+        sql = "update users set active=1 where username=%s and phone_number=%s"
+        db_conn = None
+        try:
+            db_conn = self.conn_pool.get_conn()
+            cursor = db_conn.cursor()
+            cursor.execute(sql, (username, phone_number))
+            db_conn.commit()
+            logging.info("User activation success for %s - %s" % (username, phone_number))
+        except Exception as e:
+            logging.exception(e)
+        finally:
+            if db_conn is not None:
+                return self.conn_pool.return_conn(db_conn)
 
     #
     # read/write alerts
@@ -284,7 +348,7 @@ class Model(object):
         """ Returns a CurrentSteal instance, or None. """
         logging.info("Loading current steal...")
         sql = "select " \
-              "deals.id, deals.product_name, deals.product_description, deals.brand_name, deals.sale_price, deals.url " \
+              "deals.id, deals.product_name, deals.product_description, deals.brand_name, deals.sale_price, deals.url, deals.created " \
               "from deals " \
               "order by deals.created desc limit 1 "
         result = None
@@ -294,7 +358,7 @@ class Model(object):
             cursor = db_conn.cursor()
             cursor.execute(sql)
             r = cursor.fetchall()[0]
-            result = CurrentSteal(r[0], r[1], r[2], r[3], r[4], r[5])
+            result = CurrentSteal(r[0], r[1], r[2], r[3], r[4], r[5], r[6])
         except Exception as e:
             logging.error("An exception occurred loading current steal from the database:")
             logging.error(e)
@@ -307,17 +371,17 @@ class Model(object):
         """ Returns a list of 0 or more CurrentSteals. """
         logging.info("Loading current steals since %s" % str(datetime_obj))
         sql = "select " \
-              "deals.id, deals.product_name, deals.product_description, deals.brand_name, deals.sale_price, deals.url" \
-              "from deals where deals.created > %s"
+              "deals.id, deals.product_name, deals.product_description, deals.brand_name, deals.sale_price, deals.url, deals.created " \
+              "from deals where deals.created > %s and deals.url is not null"
         results = []
         db_conn = None
         try:
             db_conn = self.conn_pool.get_conn()
             cursor = db_conn.cursor()
-            cursor.execute(sql, (datetime_obj,))
+            cursor.execute(sql, datetime_obj,)
             rs = cursor.fetchall()
             for r in rs:
-                results.append(CurrentSteal(r[0], r[1], r[2], r[3], r[4], r[5]))
+                results.append(CurrentSteal(r[0], r[1], r[2], r[3], r[4], r[5], r[6]))
         except Exception as e:
             logging.exception(e)
         finally:
