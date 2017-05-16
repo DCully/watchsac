@@ -164,7 +164,10 @@ class AccountService(object):
 
     def __send_activation_text_msg(self, phone_number, activation_key):
         if properties.USE_SMS_ACCOUNT_SETUP_VALIDATION:
+            logging.info("Sending text message to %s with key %s" % (phone_number, activation_key))
             return self.sms_client.send_activation_key(phone_number, activation_key)
+        else:
+            return True
 
     def __activate_account(self, u, pn):
         self.model.activate_user(u, pn)
@@ -174,8 +177,11 @@ class AccountService(object):
         Returns a User object if successful - None otherwise. """
         activation_key = utils.generate_new_activation_key()
         self.model.save_activation_key_pair(phone_number, activation_key)
-        self.__send_activation_text_msg(phone_number, activation_key)
-        return self.model.save_user(phone_number, username, utils.encrypt(password))
+        if not self.__send_activation_text_msg(phone_number, activation_key):
+            logging.error("An error occurred trying to send activation text message")
+            cherrypy.response.status = 400
+        else:
+            return self.model.save_user(phone_number, username, utils.encrypt(password))
 
     @cherrypy.tools.accept(media='application/json')
     @cherrypy.tools.json_in()
@@ -198,6 +204,7 @@ class AccountService(object):
             logging.info("Successful account activation request PUT to /accounts: %s" % str(data))
             self.__activate_account(data["u"], data["pn"])
             cherrypy.response.status = 200
+            return {}
 
 
 @cherrypy.expose  # /alerts

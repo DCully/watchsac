@@ -8,6 +8,7 @@ var NEW_ACCOUNT_SETUP_PAGE = "new_account_setup_page";
 var LOGIN_PAGE = "login_page";
 var ALERTS_PAGE = "alerts_page";
 var FORECASTING_RESULTS_PAGE = "forecasting_results_page";
+var ACCOUNT_ACTIVATION_PAGE = "account_activation_page";
 
 function deleteBodyFromTable(table_id) {
     var table = document.getElementById(table_id);
@@ -108,6 +109,30 @@ function ApiClient(u, p)
                 console.log("Save failed for some reason...");
                 alert("A server error occurred saving your new account - please try again.");
                 goToPage(NEW_ACCOUNT_SETUP_PAGE);
+            }
+        );
+    };
+
+    this.activateAccount = function(username, phone_number, activation_key) {
+        var myData = JSON.stringify({
+            "u": username,
+            "pn": phone_number,
+            "conf_key": activation_key
+        });
+        console.log("PUT: " + myData);
+        $.ajax({
+            url: api_url + accounts_ep,
+            method: "PUT",
+            dataType: "json",
+            contentType: 'application/json',
+            data: myData
+        }).done(
+            function(data) {
+                goToPage(LOGIN_PAGE);
+            }
+        ).fail(
+            function() {
+                alert("Could not activate account.");
             }
         );
     };
@@ -215,7 +240,7 @@ function ApiClient(u, p)
                 alert("Forecasting call failed due to some server error");
             }
         );
-    }
+    };
 }
 
 function goToPage(page_name)
@@ -253,6 +278,19 @@ function areCredentialsFormattedCorrectly(u, p) {
         return false;
     }
     console.log('u and p formatted ok');
+    return true;
+}
+
+function isActivationKeyFormattedCorrectly(activation_key) {
+    if (!(typeof activation_key === "string")) {
+        console.log('activation key not a string');
+        return false;
+    }
+    if (activation_key.length !== 20) {
+        console.log('activation key not 20 chars long');
+        return false;
+    }
+    console.log("activation key formatted ok");
     return true;
 }
 
@@ -406,7 +444,28 @@ function handleSetUpNewAccount() {
     } else {
         var tempClient = new ApiClient(u, p);
         tempClient.saveNewAccount(pn, key);
-        goToPage(LOGIN_PAGE);
+        goToPage(ACCOUNT_ACTIVATION_PAGE);
+    }
+}
+
+function handleNewAccountActivationClick() {
+
+    // get username, phone number, and account activation key from input form
+    var username = document.getElementById('activation_u_input').value;
+    var phone_number = document.getElementById('activation_pn_input').value;
+    var activation_key = document.getElementById('activation_code_input').value;
+
+    // sanitize inputs
+    var pnOk = isPhoneNumberFormattedCorrectly(phone_number);
+    var unameOk = areCredentialsFormattedCorrectly(username, "ok_password");
+    var actKeyOk = isActivationKeyFormattedCorrectly(activation_key);
+    if (!(actKeyOk && unameOk && pnOk)) {
+        alert("New account activation input fields are formatted incorrectly.");
+    }
+    else {
+        // PUT them into /accounts
+        var tempClient = new ApiClient("x", "y");
+        tempClient.activateAccount(username, phone_number, activation_key);
     }
 }
 
@@ -467,6 +526,7 @@ $(document).ready(function() {
     pages[LOGIN_PAGE]  = $("#" + LOGIN_PAGE);
     pages[NEW_ACCOUNT_SETUP_PAGE] = $("#" + NEW_ACCOUNT_SETUP_PAGE);
     pages[FORECASTING_RESULTS_PAGE] = $("#" + FORECASTING_RESULTS_PAGE);
+    pages[ACCOUNT_ACTIVATION_PAGE] = $("#" + ACCOUNT_ACTIVATION_PAGE);
 
     // register our static button click handlers
     $("#login_submit_button").click(handleLogIn);
@@ -478,6 +538,7 @@ $(document).ready(function() {
     $("#spellcheck_submit_button").click(handleCheckSpellingButtonClick);
     $("#forecast_submit_button").click(handleForecastButtonClick);
     $("#new_alert_nav_button").click(handleNewAlertSetupNavClick);
+    $("#new_account_act_submit_button").click(handleNewAccountActivationClick);
 
     // tell jquery to allow cross-origin requests
     $.support.cors = true

@@ -25,4 +25,4 @@ SEARCH_TERMS_SUGGESTION_BLOOM_FILTER_OUTPUT_DIR = config.get("etc", "SEARCH_TERM
 # forecasting history chart
 HISTORY_CHART_LOOKBACK_WINDOW = int(config.get("etc", "HISTORY_CHART_LOOKBACK_WINDOW"))
 
-USE_SMS_ACCOUNT_SETUP_VALIDATION = True if config.get("etc", "USE_SMS_ACCOUNT_SETUP_VALIDATION") is 'true' else False
+USE_SMS_ACCOUNT_SETUP_VALIDATION = True if config.get("etc", "USE_SMS_ACCOUNT_SETUP_VALIDATION") == 'true' else False

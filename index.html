@@ -80,6 +80,29 @@
   </ul>
   </div>
 
+  <!-- Page for activating an account using an SMS code -->
+  <div id="account_activation_page" style="position:relative;margin-left:auto;margin-right:auto;width:80%;display:none;">
+    <h3 style="color:navy;width:100%;text-align:center;">Activate your account</h3>
+    <p>I texted a confirmation code to your phone number.</p>
+    <form>
+      <div class="row">
+        <div class="four columns">
+          <label for="new_username_input">User Name</label>
+          <input class="u-full-width" type="text" placeholder="" id="activation_u_input">
+        </div>
+        <div class="four columns">
+          <label for="new_password_input">Phone Number</label>
+          <input class="u-full-width" type="text" placeholder="" id="activation_pn_input">
+        </div>
+        <div class="four columns">
+          <label for="new_password_input_2">Activation Code</label>
+          <input class="u-full-width" type="text" placeholder="" id="activation_code_input">
+        </div>
+      </div>
+      <input id="new_account_act_submit_button" class="button" type="button" value="Submit">
+    </form>
+  </div>
+
   <!-- Page for viewing your current alerts -->
   <div id="alerts_page" style="position:relative;margin-left:auto;margin-right:auto;width:80%;display:none;">
     <h3 style="color:navy;width:100%;text-align:center;">Active Alerts</h3>
