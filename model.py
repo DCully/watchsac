@@ -99,33 +99,6 @@ class Model(object):
         logging.debug("All db connections closed")
 
     #
-    # read new account keys
-    #
-
-    def load_new_account_keys(self):
-        """ Returns a list of NewAccountKey objects (only loads rows where active = 1). """
-        logging.info("Loading new account creation keys...")
-        sql = "select new_account_keys.id, new_account_keys.new_account_key " \
-              "from new_account_keys " \
-              "where new_account_keys.active = 1"
-        results = []
-        db_conn = None
-        try:
-            db_conn = self.conn_pool.get_conn()
-            cursor = db_conn.cursor()
-            cursor.execute(sql)
-            rs = cursor.fetchall()
-            for _id, key in rs:
-                results.append(NewAccountKey(_id, key))
-        except Exception as e:
-            logging.error("An exception occurred loading new account keys from the database:")
-            logging.error(e)
-        finally:
-            if db_conn is not None:
-                self.conn_pool.return_conn(db_conn)
-        return results
-
-    #
     # read/write activation key mappings
     #
     def save_activation_key_pair(self, phone_number, account_activation_key):

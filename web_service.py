@@ -24,8 +24,8 @@ Returns:			200 if OK, 400 if conf key doesnt match
 create account with a new account key
 URL: 			    https://watchsac.com/accounts
 Method: 			POST
-Request body:  	    {"u": "?", "p": "?", "key": "?", "pn": "?"}
-Returns:			200 if OK, 400 is username/password is bad, 401 if key was wrong
+Request body:  	    {"u": "?", "p": "?", "pn": "?"}
+Returns:			200 if OK, 400 is username/password is bad
 
 get all current alerts
 URL:      			https://watchsac.com/alerts
@@ -74,9 +74,9 @@ class AccountService(object):
         self.sms_client = sms.TwilioSMSClient()
 
     @staticmethod
-    def __has_valid_json_data(req_json, expected_params=("u", "p", "key", "pn")):
+    def __has_valid_json_data(req_json, expected_params=("u", "p", "pn")):
         # expecting:
-        # {"u": "less-than-40-chars", "less-than-40-chars": "?", "key": "(not checked here)", "pn": "+1234567890"}
+        # {"u": "less-than-40-chars", "less-than-40-chars": "?", "pn": "+1234567890"}
         for expected_param in expected_params:
             if expected_param not in req_json:
                 return False
@@ -98,13 +98,6 @@ class AccountService(object):
         else:
             return True
 
-    def __is_valid_key(self, key):
-        valid_new_account_keys = self.model.load_new_account_keys()
-        for vk in valid_new_account_keys:
-            if str(key) == str(vk.key):
-                return True
-        return False
-
     def __is_unique_username_and_number_combo(self, username, phone_number):
         current_users = self.model.load_users()
         for user in current_users:
@@ -116,9 +109,8 @@ class AccountService(object):
 
     def __is_authorized(self, req_json):
         username = req_json["u"]
-        key = req_json["key"]
         phone_number = req_json["pn"]
-        if self.__is_valid_key(key) and self.__is_unique_username_and_number_combo(username, phone_number):
+        if self.__is_unique_username_and_number_combo(username, phone_number):
             return True
         return False
 

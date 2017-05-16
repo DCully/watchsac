@@ -88,12 +88,11 @@ function ApiClient(u, p)
         xhr.setRequestHeader("Authorization", "Basic " + btoa(username + ":" + password));
     };
 
-    this.saveNewAccount = function(pn, key) {
+    this.saveNewAccount = function(pn) {
         var myData = JSON.stringify({
             "u": username,
             "p": password,
-            "pn": pn,
-            "key": key
+            "pn": pn
         });
         console.log("POST: " + myData);
         $.ajax({
@@ -102,8 +101,9 @@ function ApiClient(u, p)
             dataType: "json",
             contentType: 'application/json',
             data: myData
-        }).done(function(op)  {
+        }).done(function(op) {
             console.log("New account saved successfully.");
+            goToPage(ACCOUNT_ACTIVATION_PAGE);
         }).fail(
             function(xhr, status, error) {
                 console.log("Save failed for some reason...");
@@ -418,13 +418,11 @@ function handleSetUpNewAccount() {
     var pBox = document.getElementById('new_password_input');
     var pBox2 = document.getElementById('new_password_input_2');
     var pnBox = document.getElementById('phone_number_input');
-    var keyBox = document.getElementById('new_account_key_input');
 
     // pull out the four values
     var u = uBox.value;
     var p = pBox.value;
     var pn = pnBox.value;
-    var key = keyBox.value;
 
     // make sure the inputs are ok
     var pwsMatch = isNewPasswordPairOk(p, pBox2.value);
@@ -436,14 +434,13 @@ function handleSetUpNewAccount() {
     pBox.value = '';
     pBox2.value = '';
     pnBox.value = '';
-    keyBox.value = '';
 
     // if everything is valid, try to set up the new account, then switch the user over to the login page
     if (!(pwsMatch && credsOk && pnOk)) {
         alert("Your new account setup information was not formatted correctly.");
     } else {
         var tempClient = new ApiClient(u, p);
-        tempClient.saveNewAccount(pn, key);
+        tempClient.saveNewAccount(pn);
         goToPage(ACCOUNT_ACTIVATION_PAGE);
     }
 }
