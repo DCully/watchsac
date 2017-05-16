@@ -35,7 +35,7 @@ class TestAccountService(unittest.TestCase):
     def sign_up(username, password, key, phone_number):
         status_code = requests.post(
             "http://localhost:8080/accounts",
-            json={"u": username, "p": password, "key": key, "pn": phone_number}
+            json={"u": username, "p": password, "pn": phone_number}
         ).status_code
         if status_code != 200:
             return status_code
@@ -68,12 +68,6 @@ class TestAccountService(unittest.TestCase):
 
     def test_invalid_phone_number_3(self):
         self.assertEqual(TestAccountService.sign_up("test_user_2", "test_pwd_2", "valid_new_account_key", "+123456789"), 400)
-
-    def test_invalid_new_account_key(self):
-        self.assertEqual(TestAccountService.sign_up("test_user", "test_pwd", "not_an_ok_key", "+15555555555"), 401)
-
-    def test_inactive_new_account_key(self):
-        self.assertEqual(TestAccountService.sign_up("test_user", "test_pwd", "not_valid_new_account_key", "+15555555555"), 401)
 
     def test_missing_params(self):
         resp = requests.post(
@@ -461,19 +455,11 @@ def set_up_db():
     except:
         pass
     conn_pool = mysql.DBConnPool()
-    cmd = "mysql --user=" + properties.MYSQL_USER + " --password=" + properties.MYSQL_PASSWORD + " < " + os.getcwd() + "/schema.ddl"
+    cmd = "mysql --user=" + properties.MYSQL_USER + " --password=" + properties.MYSQL_PASSWORD + " < " + os.getcwd() + "/database/schema.ddl"
     print(cmd)
     os.system(cmd)
     conn = conn_pool.get_conn()
     c = conn.cursor()
-    c.execute("insert into new_account_keys "
-              "(id, new_account_key, active) "
-              "values "
-              "(1, 'valid_new_account_key', 1)")
-    c.execute("insert into new_account_keys "
-              "(id, new_account_key, active) "
-              "values "
-              "(2, 'not_valid_new_account_key', 0)")
     c.execute(
         "insert into deals (product_name, product_description, url) values (%s, %s, %s)",
         (
