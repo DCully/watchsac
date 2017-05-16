@@ -286,8 +286,8 @@ function isActivationKeyFormattedCorrectly(activation_key) {
         console.log('activation key not a string');
         return false;
     }
-    if (activation_key.length !== 20) {
-        console.log('activation key not 20 chars long');
+    if (activation_key.length !== 6) {
+        console.log('activation key not 6 chars long');
         return false;
     }
     console.log("activation key formatted ok");

@@ -2,7 +2,7 @@ from passlib.hash import pbkdf2_sha512
 import random
 
 _ACTIVATION_KEY_CHARS = "abcdefghijklmnopqrstuvwxyz0123456789"
-_ACTIVATION_KEY_LENGTH = 20
+_ACTIVATION_KEY_LENGTH = 6
 
 
 def is_valid_phone_number(phone_number):
