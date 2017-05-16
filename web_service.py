@@ -1,11 +1,13 @@
-import cherrypy
-from model import Model, Alert
-
 import logging
+
+import cherrypy
+
+from database.model import Model, Alert
+
 logging.basicConfig(filename='web_service.log', level=logging.DEBUG)
 
-import utils
-import properties
+from utils import utils
+from utils import properties
 import spellchecking
 import forecasting
 import sms

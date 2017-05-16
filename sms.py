@@ -1,7 +1,8 @@
-from twilio.rest import Client
-from twilio.twiml.messaging_response import MessagingResponse
 import logging
-import properties
+
+from twilio.rest import Client
+
+from utils import properties
 
 
 class TwilioSMSClient(object):

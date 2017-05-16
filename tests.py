@@ -1,15 +1,15 @@
-import unittest
-import requests
-import mysql
-import properties
-import os
-import utils
 import json
-import build_spellcheck_filters
-import spellchecking
-import forecasting
-import model
 import logging
+import os
+import unittest
+
+import requests
+
+import forecasting
+import spellchecking
+from database import model, mysql
+from scheduled_jobs import build_spellcheck_filters
+from utils import properties, utils
 
 logging.basicConfig(level=logging.DEBUG)
 model_obj = model.Model()

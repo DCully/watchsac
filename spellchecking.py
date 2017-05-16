@@ -1,7 +1,9 @@
-from build_spellcheck_filters import load_bloom_filter
+import logging
 from datetime import datetime, timedelta
 from threading import Lock
-import logging
+
+from scheduled_jobs.build_spellcheck_filters import load_bloom_filter
+
 
 # TODO - improve this thing's performance (runs kind of slow and edit distance is not a great spelling error metric)
 

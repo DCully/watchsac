@@ -1,7 +1,8 @@
-from build_spellcheck_filters import load_forecasting_sets
-from threading import Lock
-from datetime import datetime, timedelta
 import logging
+from datetime import datetime, timedelta
+from threading import Lock
+
+from scheduled_jobs.build_spellcheck_filters import load_forecasting_sets
 
 
 class ForecastingService(object):
