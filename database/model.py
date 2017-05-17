@@ -119,14 +119,17 @@ class Model(object):
                 self.conn_pool.return_conn(db_conn)
 
     def load_activation_key_pairs(self):
-        logging.info("Loading recent activation key pairs")
-        sql = "select phone_number, activation_key from account_activation_keys where created > %s"
+        ten_mins_ago = datetime.utcnow() - timedelta(minutes=120)
+        logging.info("Loading recent activation key pairs more recent than %s" % str(ten_mins_ago))
+        sql = "select phone_number, activation_key from account_activation_keys" # where created > '%s'" % str(ten_mins_ago).split(".")[0]
+        logging.error(sql)
         db_conn = None
         try:
             db_conn = self.conn_pool.get_conn()
             cursor = db_conn.cursor()
-            cursor.execute(sql, (datetime.utcnow() - timedelta(minutes=10)))
+            cursor.execute(sql)
             rs = cursor.fetchall()
+            logging.info(rs)
             results = []
             for r in rs:
                 results.append(ActivationKeyPair(r[0], r[1]))
@@ -387,6 +390,28 @@ class Model(object):
                 self.conn_pool.return_conn(db_conn)
         return results
 
+    def load_sent_alerts_count_by_user_id(self):
+        """ Returns a dict mapping user ids to alert counts. """
+        logging.info("Loading previously sent alert counts for user ids")
+        sql = "select user_id, count(id) from sent_alerts group by user_id"
+        db_conn = None
+        try:
+            db_conn = self.conn_pool.get_conn()
+            cursor = db_conn.cursor()
+            cursor.execute(sql)
+            rs = cursor.fetchall()
+            results = {}
+            for r in rs:
+                user_id = r[0]
+                count = r[1]
+                results[user_id] = count
+            return results
+        except Exception as e:
+            logging.exception(e)
+        finally:
+            if db_conn is not None:
+                self.conn_pool.return_conn(db_conn)
+
     def save_sent_alert(self, alert, deal_id):
         """ Write down in the DB that we sent out this alert. """
         logging.info("Saving sent alert, alert id: %d, deal id: %d" % (alert.alert_id, deal_id))
@@ -394,8 +419,8 @@ class Model(object):
         try:
             db_conn = self.conn_pool.get_conn()
             cursor = db_conn.cursor()
-            sql = "insert into sent_alerts (deal_id, alert_id) values (%s, %s)"
-            cursor.execute(sql, (deal_id, alert.alert_id))
+            sql = "insert into sent_alerts (user_id, deal_id, alert_id) values (%s, %s, %s)"
+            cursor.execute(sql, (alert.user_id, deal_id, alert.alert_id))
             db_conn.commit()
         except Exception as e:
             logging.error("An exception occurred saving a sent alert record:")

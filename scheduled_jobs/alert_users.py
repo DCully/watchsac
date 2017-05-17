@@ -50,6 +50,16 @@ def send_and_record_alerts(alerts_to_send, current_steal, model):
             model.save_sent_alert(alert, current_steal.deal_id)
 
 
+def filter_alerts_by_phone_number_cap(alerts_to_send, sent_counts_by_user_id):
+    filtered_alerts_to_send = []
+    for alert in alerts_to_send:
+        if alert.user_id in sent_counts_by_user_id:
+            if sent_counts_by_user_id[alert.user_id] < 3:
+                filtered_alerts_to_send.append(alert)
+                sent_counts_by_user_id[alert.user_id] += 1
+    return filtered_alerts_to_send
+
+
 def main():
     """ Exit 0 on success, 1 on failure. """
     exit_code = 0
@@ -57,10 +67,12 @@ def main():
         model = Model()
         all_active_alerts = model.load_all_active_alerts_with_phone_numbers()
         current_steal = model.load_current_steal()
+        sent_alerts_counts = model.load_sent_alerts_count_by_user_id()
         if current_steal is not None:
             previously_sent_alert_ids = model.load_sent_alerts_by_deal_id(current_steal.deal_id)
             alerts_to_send = filter_alerts_by_previously_sent(all_active_alerts, previously_sent_alert_ids)
             alerts_to_send = filter_alerts_by_current_steal_is_relevant(alerts_to_send, current_steal)
+            alerts_to_send = filter_alerts_by_phone_number_cap(alerts_to_send, sent_alerts_counts)
             send_and_record_alerts(alerts_to_send, current_steal, model)
     except Exception as e:
         logging.error(e)
