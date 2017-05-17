@@ -192,7 +192,7 @@ class AccountService(object):
             logging.info("Bad username for account confirmation request - %s" % str(data))
         elif utils.is_valid_phone_number(data["pn"]) is False:
             logging.info("Bad phone number PUT to /accounts: %s" % str(data))
-        elif self.__is_valid_conf_pair(data["pn"], data["conf_key"]):
+        elif not self.__is_valid_conf_pair(data["pn"], data["conf_key"]):
             logging.info("Bad conf key PUT to /accounts: %s" % str(data))
         else:
             logging.info("Successful account activation request PUT to /accounts: %s" % str(data))

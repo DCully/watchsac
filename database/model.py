@@ -312,8 +312,7 @@ class Model(object):
                 db_conn.commit()
             logging.info("Save success for name: %s" % (current_steal_obj.product_name,))
         except Exception as e:
-            logging.error("An exception occurred saving the title and product description: ")
-            logging.error(e)
+            logging.exception(e)
         finally:
             if db_conn is not None:
                 self.conn_pool.return_conn(db_conn)
