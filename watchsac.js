@@ -133,6 +133,7 @@ function ApiClient(u, p)
         ).fail(
             function() {
                 alert("Could not activate account.");
+                goToPage(LOGIN_PAGE);
             }
         );
     };
@@ -155,6 +156,7 @@ function ApiClient(u, p)
         ).fail(
             function() {
                 alert("Failed to load alerts.");
+                goToPage(LOGIN_PAGE);
             }
         );
     };
@@ -254,6 +256,9 @@ function goToPage(page_name)
     }
     // show whichever one we're going to
     pages[page_name].show();
+
+    // update url anchor
+    window.location.hash = page_name;
 }
 
 function areCredentialsFormattedCorrectly(u, p) {
@@ -536,7 +541,18 @@ $(document).ready(function() {
     $("#forecast_submit_button").click(handleForecastButtonClick);
     $("#new_alert_nav_button").click(handleNewAlertSetupNavClick);
     $("#new_account_act_submit_button").click(handleNewAccountActivationClick);
+    $("#cancel_save_alert_nav_btn").click(handleRefreshAlerts);
 
     // tell jquery to allow cross-origin requests
-    $.support.cors = true
+    $.support.cors = true;
+
+    // if we're refreshing the page or something, go to where we were before
+    var page = window.location.hash;
+    if (page.length > 1) {
+        page = page.slice(1);
+        console.log("Try to re-load alerts for alerts page with token");
+        apiClient = new ApiClient(null, null);
+        apiClient.getAllAlerts();  // might work with cookie if they're refreshing the page or something
+        goToPage(page);
+    }
 });
