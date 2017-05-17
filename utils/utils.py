@@ -3,6 +3,7 @@ import random
 
 _ACTIVATION_KEY_CHARS = "abcdefghijklmnopqrstuvwxyz0123456789"
 _ACTIVATION_KEY_LENGTH = 6
+_SESSION_COOKIE_LENGTH = 24
 
 
 def is_valid_phone_number(phone_number):
@@ -37,5 +38,9 @@ def verify(password_attempt, hash):
     return pbkdf2_sha512.verify(password_attempt, hash)
 
 
-def generate_new_activation_key():
-    return "".join([_ACTIVATION_KEY_CHARS[random.randint(0, len(_ACTIVATION_KEY_CHARS) - 1)] for x in range(_ACTIVATION_KEY_LENGTH)])
+def generate_new_activation_key(length=_ACTIVATION_KEY_LENGTH):
+    return "".join([_ACTIVATION_KEY_CHARS[random.randint(0, len(_ACTIVATION_KEY_CHARS) - 1)] for x in range(length)])
+
+
+def generate_new_session_cookie_token(length=_SESSION_COOKIE_LENGTH):
+    return generate_new_activation_key(length=length)

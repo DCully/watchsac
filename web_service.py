@@ -11,6 +11,7 @@ from utils import properties
 import spellchecking
 import forecasting
 import sms
+import session_token_manager
 
 """
 API spec
@@ -152,6 +153,7 @@ class AccountService(object):
         for pair in self.model.load_activation_key_pairs():
             phone_number = pair.phone_number
             activation_key = pair.activation_key
+            logging.debug("%s - %s" % (phone_number, activation_key))
             if str(pn) == str(phone_number) and str(activation_key) == str(conf_key):
                 return True
         return False
@@ -207,12 +209,39 @@ class AlertService(object):
 
     def __init__(self, model):
         self.model = model
+        self.token_mgr = session_token_manager.TokenManager()
+
+    def __check_token(self, cherrypy_request):
+        # use token_mgr to see if they've got a good token
+        u = None
+        p = None
+        try:
+            if "watchsac" in cherrypy_request.cookie:
+                token = cherrypy_request.cookie["watchsac"].value
+                u, p = self.token_mgr.is_token_good(token)
+        except Exception as e:
+            logging.exception(e)
+        finally:
+            return u, p
+
+    def __set_token(self, username, password, cherrypy_response):
+        # use the utils module to generate a token, set it in a cookie, and save it in memory in self.token_mgr
+        token = utils.generate_new_session_cookie_token()
+        self.token_mgr.set_token_for_user(token, username, password)
+        cherrypy_response.cookie["watchsac"] = token
+        cherrypy_response.cookie["watchsac"]['max-age'] = 3600
 
     def validate_password(self, realm, username, password_attempt):
         """
         Cherrypy calls into here automatically before entering the handlers (see config below).
         This is on the AlertService object so that we can get easy access to the model.
         """
+
+        logging.debug("Checking cookie token first...")
+        token_user_name, token_pwd = self.__check_token(cherrypy.request)
+        if token_user_name is not None:
+            logging.debug("Cookie token worked, user is %s, skipping u-p check" % token_user_name)
+            return True
         logging.debug("About to validate u-p - fetching users...")
         users = self.model.load_users()
         logging.debug("Validating u-p: found %d users" % len(users))
@@ -222,6 +251,7 @@ class AlertService(object):
             if str(user.user_name) == str(username):
                 if utils.verify(password_attempt, user.password):
                     logging.info("User %s verified" % username)
+                    self.__set_token(username, password_attempt, cherrypy.response)
                     return True
         return False
 
@@ -243,15 +273,32 @@ class AlertService(object):
                 results.append(alert)
         return results
 
+    def __get_user_name(self, cherrypy_request):
+        u = None
+        try:
+            token = cherrypy_request.cookie["watchsac"].value
+            u = self.token_mgr.get_user_for_token(token)
+            if u is not None:
+                return u
+        except:
+            pass
+        try:
+            u = cherrypy_request.login
+            if u is not None:
+                return u
+        except:
+            pass
+        return None
+
     @cherrypy.tools.json_out()
     def GET(self):
-        user_id = self.__get_user_by_name(cherrypy.request.login)._id
+        user_id = self.__get_user_by_name(self.__get_user_name(cherrypy.request))._id
         return [x.to_dict() for x in self.__get_alerts_for_user(user_id)]
 
     @cherrypy.tools.json_in()
     @cherrypy.tools.json_out()
     def POST(self):
-        user = self.__get_user_by_name(cherrypy.request.login)
+        user = self.__get_user_by_name(self.__get_user_name(cherrypy.request))
         alerts = self.__get_alerts_for_user(user._id)
         data = cherrypy.request.json
         try:
@@ -274,7 +321,7 @@ class AlertService(object):
     @cherrypy.tools.json_out()
     def DELETE(self, id):
         alert_id = int(id)
-        user = self.__get_user_by_name(cherrypy.request.login)
+        user = self.__get_user_by_name(self.__get_user_name(cherrypy.request))
         alerts = self.__get_alerts_for_user(user._id)
         cherrypy.response.status = 400
         for alert in alerts:
