@@ -520,6 +520,11 @@ function handleForecastButtonClick() {
     apiClient.getForecast(document.getElementById('search_terms_input').value);
 }
 
+function handleSignOut() {
+    document.cookie = "watchsac" + '=; expires=Thu, 01 Jan 1970 00:00:01 GMT;';
+    goToPage(LOGIN_PAGE);
+}
+
 $(document).ready(function() {
 
     // fill the pages associative array (this is just a convenience)
@@ -542,6 +547,7 @@ $(document).ready(function() {
     $("#new_alert_nav_button").click(handleNewAlertSetupNavClick);
     $("#new_account_act_submit_button").click(handleNewAccountActivationClick);
     $("#cancel_save_alert_nav_btn").click(handleRefreshAlerts);
+    $("#sign_out_button").click(handleSignOut);
 
     // tell jquery to allow cross-origin requests
     $.support.cors = true;
