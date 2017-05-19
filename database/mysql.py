@@ -1,8 +1,6 @@
 import logging
 from Queue import Queue
-
 import pymysql
-
 from utils import properties
 
 
@@ -35,7 +33,10 @@ class DBConnPool(object):
                 print e
 
     def get_conn(self):
-        return self.pool.get()
+        conn = self.pool.get()
+        if not conn.ping(reconnect=True):
+            conn = self.__get_db_conn()
+        return conn
 
     def return_conn(self, conn):
         try:
