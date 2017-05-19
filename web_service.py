@@ -226,7 +226,7 @@ class AlertService(object):
 
     def __set_token(self, username, password, cherrypy_response):
         # use the utils module to generate a token, set it in a cookie, and save it in memory in self.token_mgr
-        token = utils.generate_new_session_cookie_token()
+        token = utils.generate_new_session_cookie_token(username)
         self.token_mgr.set_token_for_user(token, username, password)
         cherrypy_response.cookie["watchsac"] = token
         cherrypy_response.cookie["watchsac"]['max-age'] = 3600

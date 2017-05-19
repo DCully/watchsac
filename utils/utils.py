@@ -42,5 +42,5 @@ def generate_new_activation_key(length=_ACTIVATION_KEY_LENGTH):
     return "".join([_ACTIVATION_KEY_CHARS[random.randint(0, len(_ACTIVATION_KEY_CHARS) - 1)] for x in range(length)])
 
 
-def generate_new_session_cookie_token(length=_SESSION_COOKIE_LENGTH):
-    return generate_new_activation_key(length=length)
+def generate_new_session_cookie_token(username, length=_SESSION_COOKIE_LENGTH):
+    return str(username) + str(generate_new_activation_key(length=length))
